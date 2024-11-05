@@ -1,5 +1,10 @@
+@import "./Kanit.css";
+@import "./Mulish.css";
+@import "./Newsreader.css";
+@import "./Noto_Sans_SC.css";
 @import "./styles.css";
-
+@import "./section.css";
+@import "./darkMode.css";
 
 :root{
     --h-title-color:#3948d2;
@@ -41,20 +46,6 @@
     background: rgba(0, 0, 0, 0.5);
 }
 
-section header h2{
-    font-family: "Kanit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
-    color: var(--h-title-color);
-    font-size: 2.3rem;
-    line-height: 4rem;
-}
-
-section .main-body{
-    font-size: 1.3rem;
-    font-weight: 200;
-    line-height: 2.4rem;
-}
-
-
 .bg-gradient-primary-to-secondary-light {
     background: linear-gradient(45deg, #fcfcfc, #ffffff) !important;
 }
@@ -63,7 +54,13 @@ section .main-body{
     background: linear-gradient(45deg, #f0f0f0, #f1f1f1) !important;
 }
 
+.bg-gradient-primary-to-secondary:nth-of-type(even) {
+    background: linear-gradient(45deg, #fcfcfc, #ffffff) !important;
+}
 
+.bg-gradient-primary-to-secondary:nth-of-type(odd) {
+    background: linear-gradient(45deg, #f0f0f0, #f1f1f1) !important;
+}
 
 .on-top {
     position: relative;

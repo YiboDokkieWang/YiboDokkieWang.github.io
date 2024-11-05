@@ -1,0 +1,18 @@
+section img.hero-image {
+    width: 100%;
+    margin-bottom: 2rem;
+}
+
+section hr {
+    margin-top: 4rem;
+    color: var(--bs-blue);
+    border-width: 2px;
+}
+
+section p {
+    text-indent: 2em;
+}
+
+section.markdown {
+    padding-top: 0;
+}

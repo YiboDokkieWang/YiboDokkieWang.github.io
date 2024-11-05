@@ -16,13 +16,6 @@
 
     <!-- Google fonts-->
     <link rel="preconnect" href="https://fonts.gstatic.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,600;1,600&amp;display=swap"
-        rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Mulish:ital,wght@0,300;0,500;0,600;0,700;1,300;1,500;1,600;1,700&amp;display=swap"
-        rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,400;1,400&amp;display=swap"
-        rel="stylesheet" />
 
     <!-- Core theme CSS (includes Bootstrap)-->
     <link type="text/css" href="static/css/styles.css" rel="stylesheet" />
@@ -32,8 +25,8 @@
     <script type="text/javascript" src="static/js/bootstrap.bundle.min.js"></script>
 
     <!-- For Compatability -->
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    
+    <script src="https://polyfill-fastly.io/v3/polyfill.min.js?features=es6"></script>
+
     <!-- Markdown -->
     <script type="text/javascript" src="static/js/marked.min.js"></script>
 
@@ -70,7 +63,9 @@
     </script>
     <script type="text/javascript" id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
     <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    
+<!--    <script src="static/js/darkMode.min.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"></script>
+
     <!-- Core JS-->
     <script type="text/javascript" src="static/js/scripts.js"></script>
     <script type="text/javascript" src="static/js/js-yaml.min.js"></script>
@@ -91,15 +86,20 @@
             <div class="collapse navbar-collapse" id="navbarResponsive">
                 <ul class="navbar-nav ms-auto me-4 my-3 my-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link me-lg-3" href="#page-top">HOME</a>
+                        <a class="nav-link me-lg-3 active" href="./">HOME</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-lg-3" href="#publications">PUBLICATIONS</a>
+                        <a class="nav-link me-lg-3" href="researches.html">RESEARCHES</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-lg-3" href="#awards">AWARDS</a>
+                        <a class="nav-link me-lg-3" href="publications.html">PUBLICATIONS</a>
                     </li>
-
+                    <li class="nav-item">
+                        <a class="nav-link me-lg-3" href="./contact.html">CONTACT</a>
+                    </li>
+                    <li class="nav-item" id="btn-toggle-dark" >
+                        <a class="darkmode-switch">Toggle Dark Mode</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -122,9 +122,9 @@
         </div>
     </div>
     <!-- Photo -->
-    
+
     <!-- Home -->
-    <section class="bg-gradient-primary-to-secondary-light mt5 md5" id="home">
+    <section class="bg-gradient-primary-to-secondary mt5 md5" id="home">
         <div class="container px-5">
             <header>
                 <h2 id="home-subtitle"> </h2>
@@ -135,39 +135,58 @@
     </section>
     <!-- Home -->
 
-    <!-- Publications -->
-    <section class="bg-gradient-primary-to-secondary-gray mt5 md5" id="publications">
-        <div class="container px-5">
-            <header>
-                <h2 id="publications-subtitle"><i class="bi bi-file-text-fill"></i>&nbsp;PUBLICATIONS</h2>
-            </header>
-            <div class="main-body" id="publications-md"></div>
-
-        </div>
-    </section>
-    <!-- Publications  -->
-
     <!-- Awards -->
-    <section class="bg-gradient-primary-to-secondary-light mt5 md5" id="awards">
+    <section class="bg-gradient-primary-to-secondary mt5 md5" id="awards">
         <div class="container px-5">
             <header>
-                <h2 id="awards-subtitle"><i class="bi bi-award-fill"></i>AWARDS </h2>
+                <h2 id="awards-subtitle"><i class="bi bi-award-fill"></i> AWARDS </h2>
             </header>
             <div class="main-body" id="awards-md"></div>
-
         </div>
     </section>
     <!-- Awards -->
 
+    <!-- Awards -->
+    <section class="bg-gradient-primary-to-secondary mt5 md5" id="awards1">
+        <div class="container px-5">
+            <header>
+                <h2 id="awards1-subtitle"><i class="bi bi-award-fill"></i> AWARDS 1 </h2>
+            </header>
+            <div class="main-body" id="awards1-md"></div>
+        </div>
+    </section>
+    <!-- Awards -->
+
+    <!-- Awards -->
+    <section class="bg-gradient-primary-to-secondary mt5 md5" id="awards2">
+        <div class="container px-5">
+            <header>
+                <h2 id="awards2-subtitle"><i class="bi bi-award-fill"></i> AWARDS 2 </h2>
+            </header>
+            <div class="main-body" id="awards2-md"></div>
+        </div>
+    </section>
+    <!-- Awards -->
+
+    <!-- Technologies -->
+    <section class="bg-gradient-primary-to-secondary mt5 md5" id="technologies">
+        <div class="container px-5">
+            <header>
+                <h2 id="technologies-subtitle"><i class="bi bi-brightness-high"></i> TECHNOLOGIES </h2>
+            </header>
+            <div class="main-body" id="technologies-md"></div>
+        </div>
+    </section>
+    <!-- Technologies -->
 
     <!-- Footer-->
     <footer class="bg-bottom text-center py-5">
         <div class="container px-5">
             <div class="text-white-50 small">
                 <div id="copyright-text" class="mb-2"></div>
-                <a id="github-link" href="https://github.com/senli1073">Github</a>
+                <a href="https://github.com/senli1073">Github</a>
                 <span class="mx-1">&middot;</span>
-                <a id="license-link" href="https://github.com/senli1073/senli1073.github.io/blob/main/LICENSE">License</a>
+                <a href="https://github.com/senli1073/senli1073.github.io/blob/main/LICENSE">License</a>
             </div>
         </div>
     </footer>

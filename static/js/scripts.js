@@ -2,7 +2,7 @@
 
 const content_dir = 'contents/'
 const config_file = 'config.yml'
-const section_names = ['home', 'publications', 'awards']
+const section_names = ['home', 'awards', 'awards1', 'awards2', 'technologies', 'publications', 'contact']
 
 
 window.addEventListener('DOMContentLoaded', event => {
@@ -54,7 +54,8 @@ window.addEventListener('DOMContentLoaded', event => {
             .then(response => response.text())
             .then(markdown => {
                 const html = marked.parse(markdown);
-                document.getElementById(name + '-md').innerHTML = html;
+                const target = document.getElementById(name + '-md')
+                target && (target.innerHTML = html);
             }).then(() => {
                 // MathJax
                 MathJax.typeset();
@@ -62,4 +63,11 @@ window.addEventListener('DOMContentLoaded', event => {
             .catch(error => console.log(error));
     })
 
-}); 
+    // Darkmode
+    const darkmode = new Darkmode();
+    document.getElementById('btn-toggle-dark').addEventListener('click', () => {
+        darkmode.toggle();
+        console.log('[darkmode.isActivated()]', darkmode.isActivated())
+    })
+
+});
