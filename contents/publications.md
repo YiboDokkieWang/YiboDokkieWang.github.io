@@ -1,11 +1,11 @@
-1. <strong>S. Li</strong>, X. Yang*, A. Cao*, K. Fan, Y. Liu, C. Wang, and Q.Niu (2024). Label Noise-Robust Learning for Microseismic Arrival Time Picking. <strong>In revision.</strong> [[Code]](https://github.com/senli1073/LNRL)
+5. <strong>Yibo Wang</strong>, Gaomin Su, Rongxin Qiu. Research on Global Maximum Power Point Tracking Control of PV Arrays Based on Jump Explore Incremental Conductance Method. Journal of Electrical Engineering, 2024, 19(01):351-357. (in Chinese) [[Paper]](http://www.cjeecmp.cn/CN/10.11985/2024.01.038)
 
-2. X. Yang, <strong>S. Li</strong>, A. Cao*, C. Wang*, Y. Liu, X. Bai, and Q. Niu (2024). Deep Transfer Learning for P-wave Arrival Identification and Automatic Seismic Source Location in Underground Mines. <strong>International Journal of Rock Mechanics and Mining Sciences</strong>. [[Paper]](https://doi.org/10.1016/j.ijrmms.2024.105888)
+4. <strong>Yibo Wang</strong>, "SOC Estimation for Electrical Vehicle lithium Batteries base on Simplified-spherical Un-scented Kalman Filtering", Journal of Information Electrical Electronics Engineering, 2022(4):1-11. [[Paper]](https://jieee.a2zjournals.com/index.php/ieee/article/view/20)
 
-3. <strong>S. Li</strong>, X. Yang*, A. Cao*, C. Wang, Y. Liu, Y. Liu, and Q. Niu (2024). SeisT: A Foundational Deep-Learning Model for Earthquake Monitoring Tasks. <strong>IEEE Transactions on Geoscience and Remote Sensing</strong>. [[Paper]](https://doi.org/10.1109/TGRS.2024.3371503) [[Code]](https://github.com/senli1073/SeisT)
+3. <strong>Yibo Wang<strong>, Haitao Wu, Rongxin Qiu. "Maximum Power Point Tracking of Photovoltaic Array based on Multi-hierarchy Second-order Oscillation Particle Swarm Optimization Algorithm." International Journal of Renewable Energy Sources.2022(7):17-25. [[Paper]](https://www.iaras.org/home/caijres/maximum-power-point-tracking-of-photovoltaic-array-based-on-multi-hierarchy-second-order-oscillation-particle-swarm-optimization-algorithm)
 
-4. A. Cao, X. Yang, C. Wang*, <strong>S. Li</strong>, Y. Liu, L. Dou, and Q. Niu (2023). High-Precision Phase Picking and Automatic Source Locating Method for Seismicity in Mines Based on Deep Transfer Learning. <strong>Journal of China Coal Society</strong>. [[Paper]](https://doi.org/10.13225/j.cnki.jccs.2023.0095)
-5. A. Cao, Y. Liu, X. Yang*, <strong>S. Li</strong>, C. Wang, X. Bai, and Y. Liu (2022). Physical Index and Data Fusion-Driven Method for Coal Burst Prediction in Time Sequence. <strong>Journal of China Coal Society</strong>. [[Paper]](https://doi.org/10.13225/j.cnki.jccs.2022.0680)
+2. <strong>Yibo Wang<strong>. Maximum power point tracking of photovoltaic array based on Levy flight mayfly algorithm. Electrical Engineering, 2022, 23(1): 64-69. (in Chinese) [[Paper]](http://dqjs.cesmedia.cn/CN/abstract/abstract3388.shtml)
 
-6. X. Yang, X. Yu, C. Zhang, <strong>S. Li</strong>, and Q. Niu (2021). MineGPS: Battery-Free Localization Base Station for Coal Mine Environment. <strong>IEEE Communications Letters</strong>. [[Paper]](https://doi.org/10.1109/LCOMM.2021.3081593)
+1. <strong>Yibo Wang<strong>, Performance Analysis of DIPR-PLL Under Complex Power Grid Faults. Electrotechnics Electric, 2021,(12):16-20+52. (in Chinese) [[Paper]](http://www.idgdq.cn/jianSuo/jianSuoDetail-1900.htm?ColumType=2&Year=12&Month=)
+
 

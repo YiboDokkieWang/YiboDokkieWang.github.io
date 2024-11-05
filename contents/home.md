@@ -1,12 +1,13 @@
-He is currently pursuing a Master's Degree in Computer Science, at School of Computer Science and Technology, China University of Mining and Technology, China.
-
+He received the B.Sc. degrees in Automation from the Inner Mongolia University of Technology, Hohhot, China, in 2020, and M.Res degree in Low Carbon Electrical Power and Energy Technology from the University of Liverpool, Liverpool, U.K. in 2023.  He is currently working toward the Ph.D. degree in Electrical and Computer Engineering with the State Key Laboratory of Internet of Things for Smart City, University of Macau, Macau, China.
 #### Email
-sli[at]cumt.edu.cn
+YC37959@um.edu.mo
+chest_wang.hhht@foxmail.com
 
 #### Education
-M.E., Computer Science and Technology, China University of Mining and Technology, 2022—2025 (expected).\
-B.E., Data Science and Big Data Technology, China University of Mining and Technology, 2018—2022.
+Ph.D., Electrical and Computer Engineering, University of Macau, 2023—2027 (expected).\
+MRes, Low Carbon Electrical Power and Energy Technology, Xi'an Jiaotong-Liverpool University, 2021-2023\
+B.E., Automation, Inner Mongolia University of  Technology, 2016—2020.
 
 #### Research Interests
-Deep Learning, Artificial Intelligence Seismology, Mine Microseismic.
+Talkactive Power Converter, Multi-converter Converter, Circulating Current Suppression, Future Renewable Electric Energy Delivery and Management System
 
