@@ -1,4 +1,4 @@
-1. <strong>Y. Wang</strong>, G. Su, and R. Qiu, "Research on Global Maximum Power Point Tracking Control of PV Arrays Based on Jump Explore Incremental Conductance Method," J. Electr. Eng., vol. 19, no. 1, pp. 351-357, 2024. (in Chinese) [[Paper]](http://www.cjeecmp.cn/CN/10.11985/2024.01.038)
+1. <strong>Y. Wang</strong>, G. Su, and R. Qiu, "Research on Global Maximum Power Point Tracking Control of PV Arrays Based on Jump Explore Incremental Conductance Method," J. Electr. Eng., vol. 19, no. 1, pp. 351-357, 2024. (in Chinese) [[Paper]](http://www.cjeecmp.cn/CN/10.11985/2024.01.038)[[Code]](https://github.com/YiboDokkieWang/MPPTforPV)
 
 2. <strong>Y. Wang</strong>. "SOC Estimation for Electrical Vehicle Lithium Batteries Based on Simplified-spherical Unscented Kalman Filtering," J. Inf. Elect. Electron. Eng., vol. 2022, no. 4, pp. 1-11, 2022. [[Paper]](https://jieee.a2zjournals.com/index.php/ieee/article/view/20)
 
