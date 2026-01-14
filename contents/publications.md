@@ -1,4 +1,4 @@
-<strong>Yibo Wang</strong>, Man-Chung Wong, Chi-Kong Wong, "Review of talkative power conversion from power electronics and communication perspectives", Renewable and Sustainable Energy Reviews, vol.230, pp.116708, 2026. [[Paper]](https://www.sciencedirect.com/science/article/pii/S1364032126000079)
+1. <strong>Yibo Wang</strong>, Man-Chung Wong, Chi-Kong Wong, "Review of talkative power conversion from power electronics and communication perspectives", Renewable and Sustainable Energy Reviews, vol.230, pp.116708, 2026. [[Paper]](https://www.sciencedirect.com/science/article/pii/S1364032126000079)
 
 <strong>Yibo Wang</strong>, Gaomin Su, and Rrongxin Qiu, "Research on Global Maximum Power Point Tracking Control of PV Arrays Based on Jump Explore Incremental Conductance Method," Journal of Electrical Engineering, vol. 19, no. 1, pp. 351-357, 2024. (in Chinese) [[Paper]](http://www.cjeecmp.cn/CN/10.11985/2024.01.038) [[Code]](https://github.com/YiboDokkieWang/MPPTforPV)
 
