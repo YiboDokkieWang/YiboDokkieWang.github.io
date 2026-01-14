@@ -7,5 +7,5 @@ MRes, Low Carbon Electrical Power and Energy Technology, Xi'an Jiaotong-Liverpoo
 B.E., Automation, Inner Mongolia University of  Technology, 2016—2020.
 
 #### Research Interests
-Talkactive Power Converter, Multi-converter System, Circulating Current Suppression, Future Renewable Electric Energy Delivery and Management System, Microgrid/Converter Cluster
+Talkactive Power Conversion, Multi-converter System, Narrowband Communication, Microgrid/Converter Cluster
 
