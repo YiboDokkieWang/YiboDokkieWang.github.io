@@ -105,6 +105,7 @@ async function applyLanguage(language, preserveScroll = false) {
     } finally {
         if (languageButton) languageButton.disabled = false
         if (preserveScroll) window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' })
+        document.documentElement.classList.remove('language-loading')
     }
 }
 
@@ -140,11 +141,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     await applyLanguage(siteLanguage)
 
-    const darkmode = new Darkmode({ time: '0.8s' })
     const darkModeButton = document.getElementById('btn-toggle-dark')
     darkModeButton && darkModeButton.addEventListener('click', () => {
         document.documentElement.classList.add('theme-transitioning')
-        darkmode.toggle()
+        const darkModeActive = document.documentElement.classList.toggle('darkmode--activated')
+        localStorage.setItem('site-theme', darkModeActive ? 'dark' : 'light')
         window.setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 900)
     })
 })

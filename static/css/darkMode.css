@@ -1,5 +1,9 @@
 @charset "UTF-8";
 
+html.language-loading body {
+    visibility: hidden;
+}
+
 html.theme-transitioning body,
 html.theme-transitioning nav,
 html.theme-transitioning section,
@@ -18,10 +22,6 @@ html.theme-transitioning #technologies-md ul > li {
         background-color 0.8s ease,
         border-color 0.8s ease,
         box-shadow 0.8s ease !important;
-}
-
-.darkmode-layer {
-    transition: transform 0.8s ease, opacity 0.8s ease !important;
 }
 
 .darkmode-switch {
@@ -76,11 +76,35 @@ html.theme-transitioning #technologies-md ul > li {
 }
 
 .darkmode--activated .bg-gradient-primary-to-secondary:nth-of-type(odd) {
-    background: linear-gradient(45deg, rgb(220, 220, 220), rgb(221 221 221)) !important;
+    background: linear-gradient(45deg, #191919, #202020) !important;
+}
+
+.darkmode--activated .bg-gradient-primary-to-secondary:nth-of-type(even),
+.darkmode--activated .bg-gradient-primary-to-secondary-light,
+.darkmode--activated .bg-gradient-primary-to-secondary-gray {
+    background: linear-gradient(45deg, #202020, #272727) !important;
+}
+
+.darkmode--activated body {
+    color: #f2f2f2;
+    background-color: #191919;
 }
 
 .darkmode--activated section #technologies-md ul > li {
-    /*background-color: #232323;*/
+    color: #ffffff;
+    background-color: #232323;
+    border-color: #4a4a4a;
+}
+
+.darkmode--activated section #technologies-md ul > li > a,
+.darkmode--activated section #technologies-md ul > li > a:visited,
+.darkmode--activated section #technologies-md ul > li > a:hover,
+.darkmode--activated section #technologies-md ul > li > a:active {
+    color: #ffffff;
+}
+
+.darkmode--activated section #technologies-md ul > li:hover {
+    background-color: #303030;
 }
 
 .darkmode--activated .bg-bottom {
