@@ -21,6 +21,13 @@ section .main-body{
     line-height: 2.4rem;
 }
 
+#publications-md .author-self,
+#publications-md strong {
+    font-family: "Times New Roman", SimSun, "宋体", serif !important;
+    font-weight: 700 !important;
+    font-synthesis: weight;
+}
+
 section #contact-md ul,
 section #technologies-md ul {
     padding: 0;
@@ -70,7 +77,21 @@ section #technologies-md ul > li:hover {
     background-color: #fdfdfd;
 }
 
-section #technologies-md ul > li > img {
+section #technologies-md ul > li > a {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+section #technologies-md ul > li > a:visited,
+section #technologies-md ul > li > a:hover,
+section #technologies-md ul > li > a:active {
+    color: inherit;
+    text-decoration: none;
+}
+
+section #technologies-md ul > li > img,
+section #technologies-md ul > li > a > img {
     width: 1.25rem;
     height: 1.25rem;
     margin-right: 1rem;

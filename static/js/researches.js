@@ -1,35 +1,38 @@
-
-
-const research_content_dir = 'contents/researches/'
 const research_section_names = ['1', '2', '3']
 
+async function renderResearchSections(language) {
+    const title = document.getElementById('research-title')
+    if (!title) return
 
-window.addEventListener('DOMContentLoaded', async (event) => {
-    // Marked
-    marked.use({ mangle: false, headerIds: false })
-    const title = document.getElementById('research-title');
-    for (const section of research_section_names.reverse()) {
-        const placeholder = document.createElement('section');
-        placeholder.id = section + '-md';
-        title.after(placeholder)
-    }
-    research_section_names.forEach((name, idx) => {
-        fetch(research_content_dir + name + '.md')
-            .then(response => response.text())
-            .then(markdown => {
-                const html = marked.parse(markdown);
-                const section = document.getElementById(name + '-md');
-                const  div = document.createElement('div')
-                div.className = 'container px-5'
-                const mdContainer = document.createElement('div')
-                mdContainer.classList.add('main-body')
-                mdContainer.innerHTML = html
-                div.appendChild(mdContainer)
-                section.appendChild(div)
-            }).then(() => {
-            // MathJax
-            MathJax.typeset();
-        })
-            .catch(error => console.log(error));
+    let insertionPoint = title
+    research_section_names.forEach(name => {
+        let section = document.getElementById(name + '-md')
+        if (!section) {
+            section = document.createElement('section')
+            section.id = name + '-md'
+            insertionPoint.after(section)
+        }
+        insertionPoint = section
     })
-});
+
+    const directory = language === 'zh' ? 'contents/zh/researches/' : 'contents/researches/'
+    const renderedSections = await Promise.all(research_section_names.map(async name => {
+        const response = await fetch(directory + name + '.md')
+        if (!response.ok) throw new Error(`Unable to load research ${name}.md`)
+        return [name, marked.parse(await response.text())]
+    }))
+
+    renderedSections.forEach(([name, html]) => {
+        const section = document.getElementById(name + '-md')
+        section.innerHTML = ''
+        const container = document.createElement('div')
+        container.className = 'container px-5'
+        const markdownContainer = document.createElement('div')
+        markdownContainer.className = 'main-body'
+        markdownContainer.innerHTML = html
+        container.appendChild(markdownContainer)
+        section.appendChild(container)
+    })
+}
+
+window.registerLanguageLoader(renderResearchSections)

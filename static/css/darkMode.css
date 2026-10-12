@@ -1,5 +1,29 @@
 @charset "UTF-8";
 
+html.theme-transitioning body,
+html.theme-transitioning nav,
+html.theme-transitioning section,
+html.theme-transitioning footer,
+html.theme-transitioning h1,
+html.theme-transitioning h2,
+html.theme-transitioning h3,
+html.theme-transitioning h4,
+html.theme-transitioning p,
+html.theme-transitioning li,
+html.theme-transitioning a,
+html.theme-transitioning button,
+html.theme-transitioning #technologies-md ul > li {
+    transition:
+        color 0.8s ease,
+        background-color 0.8s ease,
+        border-color 0.8s ease,
+        box-shadow 0.8s ease !important;
+}
+
+.darkmode-layer {
+    transition: transform 0.8s ease, opacity 0.8s ease !important;
+}
+
 .darkmode-switch {
     cursor: pointer;
     display: block;

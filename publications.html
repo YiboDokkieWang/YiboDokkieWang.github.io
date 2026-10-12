@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="description" content="Academic Webpage" />
     <meta name="author" content="senli1073" />
-    <title id="title-contact"></title>
+    <title id="title-publications"></title>
 
     <!-- Icon -->
     <link rel="icon" type="image/x-icon" href="static/assets/favicon.ico" />
@@ -86,19 +86,22 @@
             <div class="collapse navbar-collapse" id="navbarResponsive">
                 <ul class="navbar-nav ms-auto me-4 my-3 my-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link me-lg-3" href="./">HOME</a>
+                        <a class="nav-link me-lg-3" data-i18n="nav-home" href="./">HOME</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-lg-3" href="researches.html">RESEARCHES</a>
+                        <a class="nav-link me-lg-3" data-i18n="nav-researches" href="researches.html">RESEARCHES</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-lg-3 active" href="./publications.html">PUBLICATIONS</a>
+                        <a class="nav-link me-lg-3 active" data-i18n="nav-publications" href="./publications.html">PUBLICATIONS</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-lg-3" href="./contact.html">CONTACT</a>
+                        <a class="nav-link me-lg-3" data-i18n="nav-contact" href="./contact.html">CONTACT</a>
+                    </li>
+                    <li class="nav-item me-lg-3">
+                        <button type="button" class="language-switch nav-link" id="btn-toggle-language">中文</button>
                     </li>
                     <li class="nav-item" id="btn-toggle-dark" >
-                        <a class="darkmode-switch">Toggle Dark Mode</a>
+                        <a class="darkmode-switch" data-i18n="toggle-dark">Toggle Dark Mode</a>
                     </li>
                 </ul>
             </div>
@@ -109,7 +112,7 @@
     <section class="bg-gradient-primary-to-secondary title">
         <div class="container px-5">
             <header>
-                <h2><i class="bi bi-file-earmark-text"></i> PUBLICATIONS </h2>
+                <h2><i class="bi bi-file-earmark-text"></i> <span data-i18n="page-publications">PUBLICATIONS</span> </h2>
             </header>
         </div>
     </section>

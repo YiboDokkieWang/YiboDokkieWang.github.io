@@ -8,11 +8,44 @@
 
 :root{
     --h-title-color:#3948d2;
+    --site-font-family: "Times New Roman", SimSun, "宋体", serif;
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-alt,
+#mainNav .navbar-brand,
+section header h2 {
+    font-family: var(--site-font-family) !important;
 }
 
 .header {
     border-bottom: solid 2px var(--bs-blue);
     z-index: 10000;
+}
+
+.language-switch {
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    background: transparent;
+    padding: 0.25rem 0.7rem !important;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.language-switch:hover,
+.language-switch:focus-visible {
+    background: rgba(57, 72, 210, 0.08);
 }
 
 .bg-bottom {
@@ -105,5 +138,3 @@
         margin: 0;
     }
 }
-
-

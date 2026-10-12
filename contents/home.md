@@ -2,10 +2,9 @@ He received the B.Sc. degrees in Automation from the Inner Mongolia University o
 
 
 #### Education
-Ph.D., Electrical and Computer Engineering, University of Macau, 2023—2027 (expected).\
-MRes, Low Carbon Electrical Power and Energy Technology, Xi'an Jiaotong-Liverpool University, 2021-2023\
-B.E., Automation, Inner Mongolia University of  Technology, 2016—2020.
+Ph.D., Electrical and Computer Engineering, University of Macau, 2023–2027 (expected).\
+MRes, Low Carbon Electrical Power and Energy Technology, Xi'an Jiaotong-Liverpool University, 2021–2023\
+B.E., Automation, Inner Mongolia University of Technology, 2016–2020.
 
 #### Research Interests
-Talkactive Power Conversion, Multi-converter System, Narrowband Communication, Microgrid/Converter Cluster
-
+Talkative Power Conversion, Multi-converter System, PV-Battery Microgrid, Microgrid/Converter Cluster
