@@ -1,4 +1,5 @@
 const { cleanDoi, loadConfig, normalizeTitle, titleSimilarity } = require('./core.cjs')
+const { filterRelevantPatents, searchEpoPatentsByNames } = require('./patents.cjs')
 
 const REQUEST_TIMEOUT_MS = 15000
 
@@ -447,6 +448,45 @@ async function listOrcidWorks(orcidId) {
     const ids = summary['external-ids']?.['external-id'] || []
     const doi = ids.find(id => id['external-id-type']?.toLowerCase() === 'doi')?.['external-id-value'] || ''
     const type = /conference/i.test(summary.type || '') ? 'conference' : /patent/i.test(summary.type || '') ? 'patent' : 'journal'
+    if (type === 'patent') {
+      let detail = null
+      if (summary['put-code']) {
+        try {
+          detail = await fetchJson(`https://pub.orcid.org/v3.0/${encodeURIComponent(orcidId)}/work/${summary['put-code']}`, {
+            headers: { Accept: 'application/vnd.orcid+json' },
+          })
+        } catch {}
+      }
+      const detailIds = detail?.['external-ids']?.['external-id'] || ids
+      const externalValues = detailIds.map(item => item['external-id-value']).filter(Boolean)
+      const patentNumber = externalValues
+        .map(value => String(value).match(/\b(?:CN|EP|US|WO)\s?\d+[A-Z]\d?\b/i)?.[0] || '')
+        .find(Boolean)?.replace(/\s/g, '').toUpperCase() || ''
+      const contributors = (detail?.contributors?.contributor || [])
+        .map(item => item['credit-name']?.value)
+        .filter(Boolean)
+      const dateValue = summary['publication-date']
+      const year = Number(dateValue?.year?.value) || null
+      const month = Number(dateValue?.month?.value) || 1
+      const day = Number(dateValue?.day?.value) || 1
+      records.push({
+        fixture: false,
+        type: 'patent',
+        title: detail?.title?.title?.value || summary.title?.title?.value || '',
+        authors: contributors,
+        inventors: contributors,
+        applicants: [],
+        abstract: detail?.['short-description'] || '',
+        classifications: [],
+        year,
+        date: year ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '',
+        patentNumber,
+        url: summary.url?.value || '',
+        status: /[BCU]\d?$/i.test(patentNumber) ? 'granted' : 'published',
+        source: 'ORCID',
+      })
+      continue
+    }
     const record = {
       fixture: false,
       type,
@@ -501,16 +541,50 @@ async function scanConfiguredSources() {
       sourceStatus.push({ source: 'IEEE Xplore', ok: true, count: 0, skipped: true, message: '等待配置IEEE_API_KEY' })
     }
   }
+  if (config.patentSearch?.enabled) {
+    if (process.env.EPO_OPS_KEY && process.env.EPO_OPS_SECRET) {
+      try {
+        const records = await searchEpoPatentsByNames(config.patentSearch.nameAliases || config.authorNames)
+        all.push(...records)
+        sourceStatus.push({ source: 'EPO OPS patents', ok: true, count: records.length })
+      } catch (error) {
+        sourceStatus.push({ source: 'EPO OPS patents', ok: false, count: 0, error: error.message })
+      }
+    } else {
+      sourceStatus.push({ source: 'EPO OPS patents', ok: true, count: 0, skipped: true, message: '等待配置EPO_OPS_KEY和EPO_OPS_SECRET' })
+    }
+  }
+  const patentCandidates = all.filter(record => record.type === 'patent')
+  const patentFilter = filterRelevantPatents(patentCandidates, config.patentSearch || {})
+  sourceStatus.push({
+    source: 'Patent identity and research filter',
+    ok: true,
+    count: patentFilter.relevant.length,
+    ignored: patentFilter.ignored.length,
+    examined: patentFilter.examined,
+  })
+  const eligibleRecords = [
+    ...all.filter(record => record.type !== 'patent'),
+    ...patentFilter.relevant,
+  ]
   const deduplicated = []
   const seen = new Set()
-  all.forEach(record => {
+  eligibleRecords.forEach(record => {
     const key = record.doi ? `doi:${cleanDoi(record.doi)}` : `title:${normalizeTitle(record.title)}`
     if (!seen.has(key)) {
       seen.add(key)
       deduplicated.push(record)
     }
   })
-  return { records: deduplicated, sourceStatus }
+  return {
+    records: deduplicated,
+    sourceStatus,
+    patentFilter: {
+      examined: patentFilter.examined,
+      relevant: patentFilter.relevant.length,
+      ignored: patentFilter.ignored.length,
+    },
+  }
 }
 
 module.exports = {

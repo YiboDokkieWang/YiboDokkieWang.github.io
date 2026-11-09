@@ -64,6 +64,8 @@ function safeRecord(record = {}) {
     'volume', 'issue', 'pages', 'articleNumber', 'doi', 'url', 'patentNumber', 'status',
     'source', 'ieeeDocumentId', 'semanticScholarId',
     'matchScore', 'matchBreakdown', 'sourceScore',
+    'inventors', 'applicants', 'abstract', 'classifications', 'familyKey',
+    'relevanceScore', 'relevanceReasons', 'matchedKeywords',
   ]
   return Object.fromEntries(allowed.filter(key => record[key] !== undefined).map(key => [key, record[key]]))
 }

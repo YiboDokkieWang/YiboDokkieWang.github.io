@@ -338,6 +338,7 @@ document.getElementById('live-scan-button').addEventListener('click', async even
         <article><span>正式版本更新</span><strong>${scan.counts.upgrades}</strong></article>
       </div>
       <ul class="source-list">${scan.sourceStatus.map(item => `<li class="${item.skipped ? '' : item.ok ? 'pass' : 'fail'}">${escapeHtml(item.source)}：${item.skipped ? escapeHtml(item.message) : item.ok ? `成功，找到${item.count}条` : `失败，${escapeHtml(item.error)}`}</li>`).join('')}</ul>
+      <p><b>专利领域筛选：</b>检查${scan.patentFilter?.examined || 0}条同名候选，保留${scan.patentFilter?.relevant || 0}条与本人研究方向相关的专利，静默过滤${scan.patentFilter?.ignored || 0}条无关专利。</p>
       <p>本次联网检查只生成报告，没有修改网站。数据源结果会在后续GitHub版本中用于创建待确认更新。</p>
     `)
     showToast('联网检查完成')

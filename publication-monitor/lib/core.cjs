@@ -112,6 +112,10 @@ function extractYear(raw = '') {
   return matches.length ? Math.max(...matches) : null
 }
 
+function patentRoot(value = '') {
+  return String(value).replace(/[.\s-]/g, '').replace(/[A-Z]\d?$/i, '').toUpperCase()
+}
+
 function sectionTypeFromHeading(heading) {
   const normalized = heading.trim().toLowerCase()
   for (const language of Object.keys(SECTION_HEADINGS)) {
@@ -133,6 +137,9 @@ function parsePublicationMarkdown(markdown) {
     }
     if (!currentType || !/^\s*\d+\.\s+/.test(line)) continue
     const ids = extractIdentifiers(line)
+    const parsedStatus = currentType === 'patent'
+      ? (/[BCU]\d?$/i.test(ids.patentNumber) ? 'granted' : 'published')
+      : (/early access|early-access/i.test(line) ? 'early-access' : 'final')
     entries.push({
       type: currentType,
       raw: line,
@@ -140,7 +147,7 @@ function parsePublicationMarkdown(markdown) {
       authors: extractAuthors(line),
       year: extractYear(line),
       ...ids,
-      status: /early access|early-access/i.test(line) ? 'early-access' : 'final',
+      status: parsedStatus,
     })
   }
   return entries
@@ -173,6 +180,9 @@ function compareRecord(record, existingEntries) {
     } else if (record.patentNumber && existing.patentNumber && record.patentNumber.toUpperCase() === existing.patentNumber.toUpperCase()) {
       score = 1
       reasons.push('专利号完全相同')
+    } else if (record.patentNumber && existing.patentNumber && patentRoot(record.patentNumber) === patentRoot(existing.patentNumber)) {
+      score = 0.99
+      reasons.push('专利公开与授权版本属于同一编号')
     } else if (record.ieeeDocumentId && existing.ieeeDocumentId && record.ieeeDocumentId === existing.ieeeDocumentId) {
       score = 1
       reasons.push('IEEE文献编号完全相同')
@@ -191,7 +201,10 @@ function compareRecord(record, existingEntries) {
 
   const newFinal = hasFinalMetadata(record)
   const oldFinal = hasFinalMetadata(best.existing)
-  const upgrade = newFinal && (!oldFinal || best.existing.status === 'early-access')
+  const patentUpgrade = record.type === 'patent'
+    && record.status === 'granted'
+    && best.existing.status !== 'granted'
+  const upgrade = patentUpgrade || (newFinal && (!oldFinal || best.existing.status === 'early-access'))
   if (best.score >= 0.9) {
     return {
       status: upgrade ? 'upgrade' : 'existing',
@@ -240,8 +253,9 @@ function buildEntry(record, language = 'en') {
   if (record.type === 'patent') {
     const number = record.patentNumber || '【专利号】'
     const date = language === 'zh' ? record.date : englishDate(record.date)
-    if (language === 'zh') return `1. ${authors}. ${title}. 中国专利, ${number}, ${date}.`
-    return `1. ${authors}, "${title}," Chinese Patent ${number}, ${date}.`
+    const link = record.url ? ` [[${language === 'zh' ? '专利' : 'Patent'}]](${record.url})` : ''
+    if (language === 'zh') return `1. ${authors}. ${title}. 中国专利, ${number}, ${date}.${link}`
+    return `1. ${authors}, "${title}," Chinese Patent ${number}, ${date}.${link}`
   }
 
   const venue = record.venue || '【Venue】'

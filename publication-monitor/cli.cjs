@@ -92,9 +92,29 @@ function markdownReport(report) {
       lines.push(`- ${source.skipped ? 'SKIP' : source.ok ? 'PASS' : 'FAIL'} ${source.source}: ${detail}`)
     })
   }
+  if (report.patentFilter) {
+    lines.push(
+      '',
+      '## Patent identity and research filter',
+      '',
+      `- Examined same-name patent candidates: ${report.patentFilter.examined || 0}`,
+      `- Relevant candidates retained: ${report.patentFilter.relevant || 0}`,
+      `- Unrelated same-name candidates ignored: ${report.patentFilter.ignored || 0}`,
+    )
+  }
   if (report.items?.length) {
     lines.push('', '## Results', '', '| Status | Type | Year | Title | Identifier |', '|---|---|---:|---|---|')
     report.items.forEach(item => lines.push(`| ${item.status} | ${item.type} | ${item.year || ''} | ${String(item.title || '').replaceAll('|', '\\|')} | ${item.doi || item.patentNumber || item.ieeeDocumentId || ''} |`))
+  }
+  if (report.changedPublications) {
+    lines.push(
+      '',
+      '## 请确认后更新网站',
+      '',
+      '本次扫描已生成网站修改，但尚未发布。请检查本 Pull Request 的 `Files changed`，确认无误后点击 `Merge pull request`。合并后 GitHub Pages 会自动发布更新。',
+      '',
+      '> 手动 `scan` 与每月自动扫描使用完全相同的扫描、查重、筛选和确认流程。',
+    )
   }
   return `${lines.join('\n')}\n`
 }
@@ -130,6 +150,7 @@ async function commandScan(args) {
     checkedAt: new Date().toISOString(),
     counts,
     sourceStatus: scan.sourceStatus,
+    patentFilter: scan.patentFilter,
     items: plans.map(plan => ({
       status: plan.comparison.status,
       type: plan.record.type,

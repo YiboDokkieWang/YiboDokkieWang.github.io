@@ -5,11 +5,13 @@ const {
   buildEntry,
   compareRecord,
   inventory,
+  loadConfig,
   loadFixture,
   parsePublicationMarkdown,
   planRecord,
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
+const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml } = require('./patents.cjs')
 
 function runSelfTests() {
   const results = []
@@ -98,6 +100,49 @@ function runSelfTests() {
     })
     assert.strictEqual(enriched.title, 'Test Paper for Publication Monitor')
     assert.deepStrictEqual(enriched.authors, ['Yibo Wang'])
+  })
+
+  test('同名专利只保留与研究方向相关的候选', () => {
+    const profile = loadConfig().patentSearch
+    const relevant = assessPatentRelevance(loadFixture('patent-relevant-same-name'), profile)
+    const irrelevant = assessPatentRelevance(loadFixture('patent-irrelevant-same-name'), profile)
+    assert.strictEqual(relevant.relevant, true)
+    assert.strictEqual(irrelevant.relevant, false)
+    assert(relevant.score > irrelevant.score)
+  })
+
+  test('研究方向相关但发明人不同的专利不会推送', () => {
+    const profile = loadConfig().patentSearch
+    const record = { ...loadFixture('patent-relevant-same-name'), authors: ['Other Inventor'], inventors: ['Other Inventor'] }
+    const assessment = assessPatentRelevance(record, profile)
+    assert.strictEqual(assessment.identityMatched, false)
+    assert.strictEqual(assessment.relevant, false)
+  })
+
+  test('同族专利优先保留授权版本和中国版本', () => {
+    const base = loadFixture('patent-relevant-same-name')
+    const selected = deduplicatePatentFamilies([
+      { ...base, patentNumber: 'WO999999991A1', status: 'published' },
+      { ...base, patentNumber: 'CN999999991B', status: 'granted' },
+    ], ['CN', 'WO', 'EP', 'US'])
+    assert.strictEqual(selected.length, 1)
+    assert.strictEqual(selected[0].patentNumber, 'CN999999991B')
+  })
+
+  test('EPO OPS XML可提取专利号、发明人、申请人和分类', () => {
+    const xml = `<?xml version="1.0"?><ops:world-patent-data xmlns:ops="ops" xmlns:exch="exch"><exch:exchange-documents><exch:exchange-document country="CN" doc-number="999999991" kind="B"><exch:bibliographic-data><exch:publication-reference><exch:document-id><exch:country>CN</exch:country><exch:doc-number>999999991</exch:doc-number><exch:kind>B</exch:kind><exch:date>20270618</exch:date></exch:document-id></exch:publication-reference><exch:invention-title lang="en">Battery SOC estimation using an adaptive Kalman filter</exch:invention-title><exch:parties><exch:applicants><exch:applicant><exch:applicant-name><exch:name>UNIVERSITY OF MACAU</exch:name></exch:applicant-name></exch:applicant></exch:applicants><exch:inventors><exch:inventor><exch:inventor-name><exch:name>WANG YIBO</exch:name></exch:inventor-name></exch:inventor></exch:inventors></exch:parties><exch:classifications-ipcr><exch:classification-ipcr><exch:text>G01R 31/367</exch:text></exch:classification-ipcr></exch:classifications-ipcr></exch:bibliographic-data><exch:abstract lang="en"><exch:p>A lithium battery state-of-charge estimation method.</exch:p></exch:abstract></exch:exchange-document></exch:exchange-documents></ops:world-patent-data>`
+    const records = parseEpoExchangeXml(xml)
+    assert.strictEqual(records.length, 1)
+    assert.strictEqual(records[0].patentNumber, 'CN999999991B')
+    assert(records[0].inventors.includes('WANG YIBO'))
+    assert(records[0].applicants.includes('UNIVERSITY OF MACAU'))
+    assert(records[0].classifications.includes('G01R 31/367'))
+  })
+
+  test('专利公开版本可被授权版本替换', () => {
+    const final = loadFixture('patent-relevant-same-name')
+    const existing = [{ ...final, patentNumber: 'CN999999991A', status: 'published', raw: 'existing patent' }]
+    assert.strictEqual(compareRecord(final, existing).status, 'upgrade')
   })
 
   return {

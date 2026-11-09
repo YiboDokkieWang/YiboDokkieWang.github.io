@@ -1,0 +1,15 @@
+{
+  "fixture": true,
+  "type": "patent",
+  "title": "A cosmetic composition for improving skin moisture",
+  "authors": ["WANG YIBO"],
+  "inventors": ["WANG YIBO"],
+  "applicants": ["Example Cosmetics Company"],
+  "abstract": "The invention relates to a cosmetic formulation containing a plant extract and an emulsifier.",
+  "classifications": ["A61K8/97"],
+  "patentNumber": "CN999999992A",
+  "date": "2027-06-18",
+  "year": 2027,
+  "status": "published",
+  "source": "fixture"
+}

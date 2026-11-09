@@ -1,0 +1,15 @@
+{
+  "fixture": true,
+  "type": "patent",
+  "title": "Adaptive state-of-charge estimation method for lithium battery energy storage systems",
+  "authors": ["WANG YIBO", "OUYANG YUANBING"],
+  "inventors": ["WANG YIBO", "OUYANG YUANBING"],
+  "applicants": ["University of Macau"],
+  "abstract": "A battery management system estimates lithium battery SOC using an adaptive Kalman filter.",
+  "classifications": ["G01R31/367", "H01M10/48"],
+  "patentNumber": "CN999999991B",
+  "date": "2027-06-18",
+  "year": 2027,
+  "status": "granted",
+  "source": "fixture"
+}

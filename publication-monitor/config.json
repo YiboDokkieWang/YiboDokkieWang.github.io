@@ -10,6 +10,19 @@
   "ieeeProfileUrl": "https://ieeexplore.ieee.org/author/721434224100915",
   "semanticScholarAuthorId": "",
   "googleScholarProfileUrl": "",
+  "patentSearch": {
+    "enabled": true,
+    "nameAliases": ["Yibo Wang", "Wang Yibo", "Wang, Yibo", "WANG YIBO", "王艺博"],
+    "knownCollaborators": ["Yuanbing Ouyang", "Ouyang Yuanbing", "欧阳元兵", "Jiwen Liu", "Liu Jiwen", "刘继文", "Man-Chung Wong", "Chi-Kong Wong", "Qiang Yi", "Gaomin Su", "Rongxin Qiu"],
+    "affiliations": ["University of Macau", "University of Macao", "澳门大学", "澳門大學", "Sunwoda", "欣旺达", "Xi'an Jiaotong-Liverpool University", "西交利物浦大学", "Inner Mongolia University of Technology", "内蒙古工业大学"],
+    "strongKeywords": [
+      "power electronics", "power converter", "voltage source converter", "parallel converter", "multi-converter", "inverter", "rectifier", "dc-dc", "ac-dc", "photovoltaic", "PV array", "maximum power point", "MPPT", "battery", "lithium battery", "state of charge", "SOC estimation", "battery management system", "BMS", "energy storage", "microgrid", "power quality", "active power quality", "phase-locked loop", "PLL", "railway power", "regenerative braking", "cascaded H-bridge", "CHB", "电力电子", "功率变换器", "电压源变换器", "并联变换器", "逆变器", "整流器", "光伏", "最大功率点", "锂电池", "荷电状态", "SOC估计", "电池管理系统", "储能", "微电网", "电能质量", "锁相环", "铁路供电", "再生制动", "级联H桥"
+    ],
+    "supportingKeywords": ["adaptive control", "voltage control", "current control", "Kalman filter", "power flow control", "converter topology", "grid-connected", "unbalanced grid", "finite-state machine", "charging control", "自适应控制", "电压控制", "电流控制", "卡尔曼滤波", "潮流控制", "变换器拓扑", "并网", "不平衡电网", "有限状态机", "充电控制"],
+    "classificationPrefixes": ["H02J", "H02M", "H02P", "H02S", "H01M", "G01R", "B60L", "B60M", "Y02E", "Y02T"],
+    "minimumRelevanceScore": 5,
+    "countryPriority": ["CN", "WO", "EP", "US"]
+  },
   "notificationEmailSecretName": "NOTIFICATION_EMAIL",
   "monthlySchedule": "17 9 1 * *",
   "timezone": "Asia/Shanghai"
