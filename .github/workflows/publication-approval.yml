@@ -3,6 +3,8 @@ name: Publication Approval
 on:
   issues:
     types: [edited]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -33,17 +35,32 @@ jobs:
         shell: bash
         run: |
           mkdir -p publication-monitor/output
-          node -e "const fs=require('fs'); const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')); fs.writeFileSync('publication-monitor/output/issue-body.md', event.issue.body || '')"
-          node publication-monitor/approval-cli.cjs parse \
-            --body publication-monitor/output/issue-body.md \
-            --output publication-monitor/output/selection.json
+          node -e "const fs=require('fs'); const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')); fs.writeFileSync('publication-monitor/output/issue-body.md', event.issue.body || ''); fs.writeFileSync('publication-monitor/output/comment-body.md', event.comment?.body || '')"
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            node publication-monitor/approval-cli.cjs parse \
+              --body publication-monitor/output/issue-body.md \
+              --comment publication-monitor/output/comment-body.md \
+              --output publication-monitor/output/selection.json
+          else
+            node publication-monitor/approval-cli.cjs parse \
+              --body publication-monitor/output/issue-body.md \
+              --output publication-monitor/output/selection.json
+          fi
           confirmed=$(node -e "const s=require('./publication-monitor/output/selection.json'); process.stdout.write(String(Boolean(s.confirmed)))")
           count=$(node -e "const s=require('./publication-monitor/output/selection.json'); process.stdout.write(String(s.selectedIdentifiers.length))")
+          invalid=$(node -e "const s=require('./publication-monitor/output/selection.json'); process.stdout.write(String((s.invalidSelections || []).length))")
           echo "confirmed=$confirmed" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "invalid=$invalid" >> "$GITHUB_OUTPUT"
+
+      - name: Explain invalid email selection
+        if: steps.selection.outputs.invalid != '0'
+        shell: bash
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --body "邮件回复中包含不存在的编号。请只回复一行，例如：\`确认：1,2,5\`。"
 
       - name: Record empty confirmation
-        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count == '0'
+        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count == '0' && steps.selection.outputs.invalid == '0'
         shell: bash
         run: |
           gh issue comment "${{ github.event.issue.number }}" --body "你没有勾选任何成果，本次不会修改网站。确认页现已关闭。"
@@ -51,7 +68,7 @@ jobs:
 
       - name: Apply selected publications
         id: apply
-        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count != '0'
+        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count != '0' && steps.selection.outputs.invalid == '0'
         shell: bash
         run: |
           node publication-monitor/cli.cjs scan \
@@ -66,7 +83,7 @@ jobs:
           fi
 
       - name: Publish selected publications
-        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count != '0'
+        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count != '0' && steps.selection.outputs.invalid == '0'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"

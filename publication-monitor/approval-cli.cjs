@@ -1,6 +1,6 @@
 const fs = require('fs')
 const path = require('path')
-const { parseApprovalIssue, renderApprovalIssue } = require('./lib/approval.cjs')
+const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue } = require('./lib/approval.cjs')
 
 function parseArgs(argv) {
   const args = { _: [] }
@@ -37,11 +37,14 @@ function main() {
   }
   if (command === 'parse') {
     if (!args.body || !args.output) throw new Error('parse requires --body and --output')
-    const selection = parseApprovalIssue(fs.readFileSync(args.body, 'utf8'))
+    const issueBody = fs.readFileSync(args.body, 'utf8')
+    const selection = args.comment
+      ? parseApprovalEmailReply(issueBody, fs.readFileSync(args.comment, 'utf8'))
+      : parseApprovalIssue(issueBody)
     writeFile(args.output, `${JSON.stringify(selection, null, 2)}\n`)
     return
   }
-  throw new Error('Commands: render --report <json> --output <md> [--run-url <url>] | parse --body <md> --output <json>')
+  throw new Error('Commands: render --report <json> --output <md> [--run-url <url>] | parse --body <md> [--comment <md>] --output <json>')
 }
 
 try {

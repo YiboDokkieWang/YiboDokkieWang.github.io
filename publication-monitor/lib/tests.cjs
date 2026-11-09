@@ -12,7 +12,7 @@ const {
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
 const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults } = require('./patents.cjs')
-const { parseApprovalIssue, renderApprovalIssue } = require('./approval.cjs')
+const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue } = require('./approval.cjs')
 
 function runSelfTests() {
   const results = []
@@ -204,6 +204,29 @@ function runSelfTests() {
     assert.deepStrictEqual(parseApprovalIssue(checked), {
       confirmed: true,
       selectedIdentifiers: ['patent:CN123B'],
+    })
+  })
+
+  test('邮件回复可按编号选择成果', () => {
+    const report = {
+      items: [
+        { status: 'new', type: 'journal', year: 2026, title: 'First paper', doi: '10.1000/first' },
+        { status: 'new', type: 'patent', year: 2026, titleZh: '第二项专利', notificationTitle: '第二项专利', patentNumber: 'CN456B' },
+        { status: 'new', type: 'conference', year: 2025, title: 'Third paper', doi: '10.1000/third' },
+      ],
+    }
+    const issue = renderApprovalIssue(report)
+    assert(issue.includes('**1. 期刊论文'))
+    assert(issue.includes('**2. 专利'))
+    assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：1，3'), {
+      confirmed: true,
+      selectedIdentifiers: ['doi:10.1000/first', 'doi:10.1000/third'],
+      invalidSelections: [],
+    })
+    assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：2,9'), {
+      confirmed: false,
+      selectedIdentifiers: ['patent:CN456B'],
+      invalidSelections: [9],
     })
   })
 
