@@ -1,2 +1,7 @@
 *.DS_Store
+.publication-monitor-backups/
+publication-monitor/.env.local
+publication-monitor/output/
+publication-monitor/tmp/
+publication-monitor/report.json
 

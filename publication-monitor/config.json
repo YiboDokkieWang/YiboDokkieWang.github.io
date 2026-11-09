@@ -1,0 +1,16 @@
+{
+  "repositoryOwner": "YiboDokkieWang",
+  "repositoryName": "YiboDokkieWang.github.io",
+  "authorizedActor": "YiboDokkieWang",
+  "authorNames": ["Yibo Wang", "Wang, Yibo", "王艺博"],
+  "orcidId": "0000-0003-0090-3181",
+  "orcidUrl": "https://orcid.org/0000-0003-0090-3181",
+  "ieeeAuthorId": "721434224100915",
+  "ieeeAuthorName": "Yibo Wang",
+  "ieeeProfileUrl": "https://ieeexplore.ieee.org/author/721434224100915",
+  "semanticScholarAuthorId": "",
+  "googleScholarProfileUrl": "",
+  "notificationEmailSecretName": "NOTIFICATION_EMAIL",
+  "monthlySchedule": "17 9 1 * *",
+  "timezone": "Asia/Shanghai"
+}

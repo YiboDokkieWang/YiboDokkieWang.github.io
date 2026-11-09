@@ -1,0 +1,29 @@
+{
+  "fixture": true,
+  "scenario": "early-access-upgrade",
+  "earlyAccess": {
+    "type": "journal",
+    "title": "Reliability Oriented Test Control for Power Converters",
+    "authors": ["Yibo Wang", "Test Author"],
+    "venue": "IEEE Transactions on Test Engineering",
+    "year": 2026,
+    "doi": "10.0000/test-early-access",
+    "url": "https://doi.org/10.0000/test-early-access",
+    "status": "early-access",
+    "source": "fixture"
+  },
+  "final": {
+    "type": "journal",
+    "title": "Reliability-Oriented Test Control for Power Converters",
+    "authors": ["Yibo Wang", "Test Author"],
+    "venue": "IEEE Transactions on Test Engineering",
+    "year": 2027,
+    "volume": "8",
+    "issue": "3",
+    "pages": "201-214",
+    "doi": "10.0000/test-early-access",
+    "url": "https://doi.org/10.0000/test-early-access",
+    "status": "final",
+    "source": "fixture"
+  }
+}

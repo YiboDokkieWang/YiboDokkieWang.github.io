@@ -1,0 +1,13 @@
+{
+  "fixture": true,
+  "type": "conference",
+  "title": "Test Conference Paper for Publication Monitor",
+  "authors": ["Test Author", "Yibo Wang"],
+  "venue": "2027 Test Conference on Academic Automation",
+  "year": 2027,
+  "pages": "1-6",
+  "doi": "10.0000/test-conference-monitor",
+  "url": "https://doi.org/10.0000/test-conference-monitor",
+  "status": "final",
+  "source": "fixture"
+}

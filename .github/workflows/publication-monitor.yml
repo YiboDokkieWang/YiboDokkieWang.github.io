@@ -1,0 +1,165 @@
+name: Publication Monitor
+
+on:
+  schedule:
+    - cron: '17 9 1 * *'
+      timezone: 'Asia/Shanghai'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: '操作方式'
+        required: true
+        type: choice
+        default: inventory
+        options:
+          - inventory
+          - scan
+          - add
+          - self-test
+          - simulate-new-journal
+          - simulate-new-conference
+          - simulate-new-patent
+          - simulate-early-access-upgrade
+      result_type:
+        description: '成果类型'
+        required: true
+        type: choice
+        default: auto
+        options:
+          - auto
+          - journal
+          - conference
+          - patent
+      input_kind:
+        description: '输入方式'
+        required: true
+        type: choice
+        default: auto
+        options:
+          - auto
+          - doi
+          - title
+          - ieee
+          - bibtex
+          - patent
+      input_value:
+        description: 'DOI、题目、IEEE编号、专利号或BibTeX；非add操作可留空'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: publication-monitor
+  cancel-in-progress: false
+
+jobs:
+  publication-monitor:
+    if: github.event_name == 'schedule' || github.actor == 'YiboDokkieWang'
+    runs-on: ubuntu-latest
+    env:
+      IEEE_API_KEY: ${{ secrets.IEEE_API_KEY }}
+      SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
+      EPO_OPS_KEY: ${{ secrets.EPO_OPS_KEY }}
+      EPO_OPS_SECRET: ${{ secrets.EPO_OPS_SECRET }}
+      NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+      MANUAL_INPUT_VALUE: ${{ inputs.input_value }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run monitor
+        id: monitor
+        shell: bash
+        run: |
+          mkdir -p publication-monitor/output
+          operation="${{ github.event_name == 'schedule' && 'scan' || inputs.operation }}"
+          case "$operation" in
+            self-test)
+              node publication-monitor/cli.cjs self-test --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            inventory)
+              node publication-monitor/cli.cjs inventory --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            scan)
+              node publication-monitor/cli.cjs scan --apply --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            add)
+              node publication-monitor/cli.cjs identify --apply --type "${{ inputs.result_type }}" --input-kind "${{ inputs.input_kind }}" --value "$MANUAL_INPUT_VALUE" --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            simulate-new-journal)
+              node publication-monitor/cli.cjs fixture --name new-journal --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            simulate-new-conference)
+              node publication-monitor/cli.cjs fixture --name new-conference --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            simulate-new-patent)
+              node publication-monitor/cli.cjs fixture --name new-patent --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            simulate-early-access-upgrade)
+              node publication-monitor/cli.cjs fixture --name early-access-final --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            *)
+              echo "Unknown operation: $operation" >&2
+              exit 1
+              ;;
+          esac
+          cat publication-monitor/output/report.md >> "$GITHUB_STEP_SUMMARY"
+          changed=$(node -e "const r=require('./publication-monitor/output/report.json'); process.stdout.write(String(Boolean(r.changedPublications)))")
+          echo "operation=$operation" >> "$GITHUB_OUTPUT"
+          echo "changed_publications=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Create publication update pull request
+        if: steps.monitor.outputs.changed_publications == 'true'
+        shell: bash
+        run: |
+          branch="automation/publication-monitor-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add contents/publications.md contents/zh/publications.md publication-monitor/state.json
+          git commit -m "Propose publication website update"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "Publication Monitor: review website update" \
+            --body-file publication-monitor/output/report.md \
+            --reviewer YiboDokkieWang
+
+      - name: Save monthly monitor state
+        if: github.event_name == 'schedule' && steps.monitor.outputs.changed_publications != 'true'
+        shell: bash
+        run: |
+          if git diff --quiet -- publication-monitor/state.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add publication-monitor/state.json
+          git commit -m "Record monthly publication check"
+          git push origin main
+
+      - name: Notify manual run with a report issue
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          issue=$(gh issue list --state open --search 'Publication Monitor Reports in:title' --json number --jq '.[0].number')
+          if [ -z "$issue" ]; then
+            issue=$(gh issue create \
+              --title "Publication Monitor Reports" \
+              --body "@YiboDokkieWang 手动检查报告会集中记录在这里。" \
+              --assignee YiboDokkieWang | awk -F/ '{print $NF}')
+          fi
+          gh issue comment "$issue" --body-file publication-monitor/output/report.md

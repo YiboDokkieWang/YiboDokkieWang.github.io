@@ -1,0 +1,222 @@
+const fs = require('fs')
+const path = require('path')
+const {
+  ROOT,
+  applyPlan,
+  inventory,
+  loadFixture,
+  planRecord,
+} = require('./lib/core.cjs')
+const { identify, scanConfiguredSources } = require('./lib/sources.cjs')
+const { runSelfTests } = require('./lib/tests.cjs')
+
+const STATE_PATH = path.join(__dirname, 'state.json')
+
+function parseArgs(argv) {
+  const args = { _: [] }
+  for (let index = 0; index < argv.length; index++) {
+    const value = argv[index]
+    if (!value.startsWith('--')) {
+      args._.push(value)
+      continue
+    }
+    const key = value.slice(2)
+    const next = argv[index + 1]
+    if (!next || next.startsWith('--')) args[key] = true
+    else {
+      args[key] = next
+      index++
+    }
+  }
+  return args
+}
+
+function ensureOutputDirectory(filePath) {
+  fs.mkdirSync(path.dirname(path.resolve(filePath)), { recursive: true })
+}
+
+function outputReport(report, outputPath) {
+  if (outputPath) {
+    ensureOutputDirectory(outputPath)
+    fs.writeFileSync(outputPath, JSON.stringify(report, null, 2))
+  }
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+}
+
+function identifierFor(record) {
+  if (record.doi) return `doi:${record.doi.toLowerCase()}`
+  if (record.patentNumber) return `patent:${record.patentNumber.toUpperCase()}`
+  if (record.ieeeDocumentId) return `ieee:${record.ieeeDocumentId}`
+  return `title:${String(record.title || '').toLowerCase().replace(/\W+/g, '-')}`
+}
+
+function updateState(report, records = []) {
+  const previous = fs.existsSync(STATE_PATH) ? JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) : { schemaVersion: 1, knownIdentifiers: [] }
+  const known = new Set(previous.knownIdentifiers || [])
+  records.forEach(record => known.add(identifierFor(record)))
+  const next = {
+    schemaVersion: 1,
+    lastCheckedAt: new Date().toISOString(),
+    knownIdentifiers: [...known].sort(),
+    lastRun: {
+      mode: report.mode,
+      found: report.counts?.found || 0,
+      missing: report.counts?.missing || 0,
+      upgrades: report.counts?.upgrades || 0,
+      ambiguous: report.counts?.ambiguous || 0,
+    },
+  }
+  fs.writeFileSync(STATE_PATH, `${JSON.stringify(next, null, 2)}\n`)
+}
+
+function markdownReport(report) {
+  const lines = [
+    `# Publication Monitor Report`,
+    '',
+    `- Mode: ${report.mode}`,
+    `- Checked at: ${report.checkedAt || new Date().toISOString()}`,
+  ]
+  if (report.counts) {
+    lines.push(
+      `- Found: ${report.counts.found || 0}`,
+      `- Already on website: ${report.counts.existing || 0}`,
+      `- Missing: ${report.counts.missing || 0}`,
+      `- Early Access upgrades: ${report.counts.upgrades || 0}`,
+      `- Ambiguous: ${report.counts.ambiguous || 0}`,
+    )
+  }
+  if (report.sourceStatus?.length) {
+    lines.push('', '## Sources', '')
+    report.sourceStatus.forEach(source => {
+      const detail = source.skipped ? `SKIP (${source.message})` : source.ok ? `${source.count}` : source.error
+      lines.push(`- ${source.skipped ? 'SKIP' : source.ok ? 'PASS' : 'FAIL'} ${source.source}: ${detail}`)
+    })
+  }
+  if (report.items?.length) {
+    lines.push('', '## Results', '', '| Status | Type | Year | Title | Identifier |', '|---|---|---:|---|---|')
+    report.items.forEach(item => lines.push(`| ${item.status} | ${item.type} | ${item.year || ''} | ${String(item.title || '').replaceAll('|', '\\|')} | ${item.doi || item.patentNumber || item.ieeeDocumentId || ''} |`))
+  }
+  return `${lines.join('\n')}\n`
+}
+
+async function commandScan(args) {
+  const scan = await scanConfiguredSources()
+  const plans = scan.records.map(record => planRecord(record))
+  const counts = {
+    found: plans.length,
+    existing: plans.filter(plan => plan.comparison.status === 'existing').length,
+    missing: plans.filter(plan => plan.comparison.status === 'new').length,
+    upgrades: plans.filter(plan => plan.comparison.status === 'upgrade').length,
+    ambiguous: plans.filter(plan => plan.comparison.status === 'ambiguous').length,
+  }
+  const changed = []
+  if (args.apply) {
+    const actionablePlans = plans
+      .filter(plan => ['new', 'upgrade'].includes(plan.comparison.status))
+      .sort((left, right) => {
+        const leftDate = Date.parse(left.record.date || `${left.record.year || 0}-01-01`) || 0
+        const rightDate = Date.parse(right.record.date || `${right.record.year || 0}-01-01`) || 0
+        return leftDate - rightDate
+      })
+    for (const initialPlan of actionablePlans) {
+      const currentPlan = planRecord(initialPlan.record)
+      if (!['new', 'upgrade'].includes(currentPlan.comparison.status)) continue
+      const result = applyPlan(currentPlan)
+      changed.push(...result.changed)
+    }
+  }
+  const report = {
+    mode: 'scan',
+    checkedAt: new Date().toISOString(),
+    counts,
+    sourceStatus: scan.sourceStatus,
+    items: plans.map(plan => ({
+      status: plan.comparison.status,
+      type: plan.record.type,
+      title: plan.record.title,
+      year: plan.record.year,
+      doi: plan.record.doi,
+      patentNumber: plan.record.patentNumber,
+      ieeeDocumentId: plan.record.ieeeDocumentId,
+    })),
+    changedPublications: [...new Set(changed)].length > 0,
+  }
+  updateState(report, scan.records)
+  return report
+}
+
+async function commandIdentify(args) {
+  const result = await identify({ type: args.type || 'auto', inputKind: args['input-kind'] || 'auto', value: args.value || '' })
+  const plan = planRecord(result.record)
+  const changed = []
+  if (args.apply && ['new', 'upgrade'].includes(plan.comparison.status)) changed.push(...applyPlan(plan).changed)
+  return {
+    mode: 'identify',
+    checkedAt: new Date().toISOString(),
+    counts: {
+      found: 1,
+      existing: Number(plan.comparison.status === 'existing'),
+      missing: Number(plan.comparison.status === 'new'),
+      upgrades: Number(plan.comparison.status === 'upgrade'),
+      ambiguous: Number(plan.comparison.status === 'ambiguous'),
+    },
+    items: [{ status: plan.comparison.status, ...plan.record }],
+    plan,
+    changedPublications: changed.length > 0,
+    warning: result.warning || '',
+  }
+}
+
+function commandFixture(args) {
+  const fixture = loadFixture(args.name || 'new-journal')
+  if (fixture.scenario === 'early-access-upgrade') {
+    return {
+      mode: 'fixture',
+      checkedAt: new Date().toISOString(),
+      counts: { found: 1, existing: 0, missing: 0, upgrades: 1, ambiguous: 0 },
+      items: [{ status: 'upgrade', ...fixture.final }],
+      changedPublications: false,
+      testOnly: true,
+    }
+  }
+  const plan = planRecord(fixture)
+  return {
+    mode: 'fixture',
+    checkedAt: new Date().toISOString(),
+    counts: { found: 1, existing: 0, missing: 1, upgrades: 0, ambiguous: 0 },
+    items: [{ status: plan.comparison.status, ...fixture }],
+    plan,
+    changedPublications: false,
+    testOnly: true,
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2))
+  const command = args._[0] || 'help'
+  let report
+  if (command === 'self-test') {
+    const test = runSelfTests()
+    report = { mode: 'self-test', checkedAt: new Date().toISOString(), test, counts: { found: 0, existing: 0, missing: 0, upgrades: 0, ambiguous: 0 }, changedPublications: false }
+    if (!test.ok) process.exitCode = 1
+  } else if (command === 'inventory') {
+    const current = inventory()
+    report = { mode: 'inventory', checkedAt: new Date().toISOString(), inventory: current, counts: { found: current.total, existing: current.total, missing: 0, upgrades: 0, ambiguous: 0 }, changedPublications: false }
+  } else if (command === 'fixture') report = commandFixture(args)
+  else if (command === 'identify') report = await commandIdentify(args)
+  else if (command === 'scan') report = await commandScan(args)
+  else {
+    process.stdout.write('Commands: self-test | inventory | fixture --name <fixture> | identify --type <type> --input-kind <kind> --value <value> [--apply] | scan [--apply]\n')
+    return
+  }
+  if (args['markdown-output']) {
+    ensureOutputDirectory(args['markdown-output'])
+    fs.writeFileSync(args['markdown-output'], markdownReport(report))
+  }
+  outputReport(report, args.output)
+}
+
+main().catch(error => {
+  process.stderr.write(`${error.stack || error.message}\n`)
+  process.exitCode = 1
+})

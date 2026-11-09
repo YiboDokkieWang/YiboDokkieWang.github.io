@@ -1,0 +1,13 @@
+{
+  "fixture": true,
+  "type": "patent",
+  "title": "A test patent for publication monitor validation",
+  "titleZh": "一种用于验证论文监测器的测试专利",
+  "authors": ["Yibo Wang", "Test Inventor"],
+  "authorsZh": ["王艺博", "测试发明人"],
+  "year": 2027,
+  "date": "2027-06-18",
+  "patentNumber": "CN000000000B",
+  "status": "granted",
+  "source": "fixture"
+}
