@@ -9,16 +9,18 @@
 - Pull Request 会请求 `YiboDokkieWang` 审核；是否收到邮件取决于 GitHub 账户的通知设置。邮件中的链接会进入需要登录的 GitHub 确认页面。
 - 检查 `Files changed` 后点击 `Merge pull request`，GitHub Pages 才会自动更新公开网站。
 - 月度扫描没有发现新成果时不会创建 Pull Request，也不会发送“有新成果”的通知。
-- 手动 `scan` 还会把完整报告写入 `Publication Monitor Reports` Issue，便于核对哪些成果已存在、哪些缺失。
+- 手动 `scan` 的完整报告始终保存在 workflow summary 中；仓库启用 Issues 时还会同步到 `Publication Monitor Reports` Issue。仓库关闭 Issues 时会自动跳过，不再误报失败。
 
 不使用“邮件中的免登录确认链接”，因为转发或泄露该链接会允许他人修改网站。确认操作始终受 GitHub 账户登录保护。
 
 ## 专利扫描与同名筛选
 
 - ORCID 中的专利记录会与论文一起读取。
-- 配置 EPO OPS 后，系统还会按发明人/申请人姓名检索专利数据库。
+- 默认使用无需密钥的 Google Patents 公开检索按中文发明人姓名导出候选专利，同时覆盖公开/实审阶段的 `A` 类申请和 `B/C/U` 类授权版本。
+- 配置 EPO OPS 后，系统还会通过正式接口按发明人/申请人姓名检索，并与公开检索结果合并。
 - 候选专利必须先匹配 `Yibo Wang / Wang Yibo / 王艺博` 等姓名，再根据题目、摘要、IPC/CPC 分类、已知合作者和单位判断是否属于电力电子、光伏、储能、电池、微电网、电能质量等研究方向。
 - 无关领域的同名专利会静默过滤，不会进入网站更新 Pull Request；同族专利优先保留授权版本和中国版本。
+- 尚未公开的专利申请不可能从公共数据库发现；进入实审且已经公开的申请可以被检索。
 - 筛选规则保存在 `publication-monitor/config.json` 的 `patentSearch` 中，可以继续补充关键词、合作者、单位与分类号。
 
 ## 本地验证

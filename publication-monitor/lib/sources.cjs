@@ -1,5 +1,5 @@
 const { cleanDoi, loadConfig, normalizeTitle, titleSimilarity } = require('./core.cjs')
-const { filterRelevantPatents, searchEpoPatentsByNames } = require('./patents.cjs')
+const { filterRelevantPatents, searchEpoPatentsByNames, searchGooglePatentsByInventors } = require('./patents.cjs')
 
 const REQUEST_TIMEOUT_MS = 15000
 
@@ -542,6 +542,20 @@ async function scanConfiguredSources() {
     }
   }
   if (config.patentSearch?.enabled) {
+    if (config.patentSearch.googlePatents?.enabled !== false) {
+      try {
+        const records = await searchGooglePatentsByInventors(
+          config.patentSearch.nameAliases || config.authorNames,
+          {
+            aliases: config.patentSearch.googlePatents?.aliases,
+          },
+        )
+        all.push(...records)
+        sourceStatus.push({ source: 'Google Patents public search', ok: true, count: records.length })
+      } catch (error) {
+        sourceStatus.push({ source: 'Google Patents public search', ok: false, count: 0, error: error.message })
+      }
+    }
     if (process.env.EPO_OPS_KEY && process.env.EPO_OPS_SECRET) {
       try {
         const records = await searchEpoPatentsByNames(config.patentSearch.nameAliases || config.authorNames)

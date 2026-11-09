@@ -11,7 +11,7 @@ const {
   planRecord,
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
-const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml } = require('./patents.cjs')
+const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentResults } = require('./patents.cjs')
 
 function runSelfTests() {
   const results = []
@@ -139,10 +139,42 @@ function runSelfTests() {
     assert(records[0].classifications.includes('G01R 31/367'))
   })
 
+  test('Google Patents结果同时识别公开实审和授权版本', () => {
+    const payload = {
+      results: {
+        cluster: [{
+          result: [
+            { patent: { title: ' Adaptive battery SOC estimation method', snippet: 'Lithium battery Kalman filter', publication_number: 'CN123456789A', publication_date: '2026-01-02', inventor: '<b>王艺博</b>', assignee: '王艺博' } },
+            { patent: { title: ' Power converter control method', snippet: 'Voltage source converter', publication_number: 'CN987654321B', publication_date: '2025-01-02', grant_date: '2026-03-04', inventor: '<b>王艺博</b>', assignee: 'University of Macau' } },
+          ],
+        }],
+      },
+    }
+    const records = parseGooglePatentResults(payload)
+    assert.strictEqual(records.length, 2)
+    assert.strictEqual(records[0].status, 'published')
+    assert.strictEqual(records[1].status, 'granted')
+    assert.strictEqual(records[0].inventors[0], '王艺博')
+  })
+
+  test('Google Patents单次CSV导出可读取完整发明人字段', () => {
+    const csv = 'search URL,https://patents.google.com/\nid,title,assignee,inventor,priority date,filing/creation date,publication date,grant date,result link\nCN117907843A,"Adaptive battery SOC estimation","王艺博","王艺博, 欧阳元兵, 刘继文",2024-02-16,2024-02-16,2024-04-19,,https://patents.google.com/patent/CN117907843A\n'
+    const rows = parseGooglePatentCsv(csv)
+    assert.strictEqual(rows.length, 1)
+    assert.strictEqual(rows[0].publication_number, 'CN117907843A')
+    assert(rows[0].inventor.includes('欧阳元兵'))
+  })
+
   test('专利公开版本可被授权版本替换', () => {
     const final = loadFixture('patent-relevant-same-name')
     const existing = [{ ...final, patentNumber: 'CN999999991A', status: 'published', raw: 'existing patent' }]
     assert.strictEqual(compareRecord(final, existing).status, 'upgrade')
+  })
+
+  test('已授权专利不会被检索到的公开版本降级', () => {
+    const publicVersion = { ...loadFixture('patent-relevant-same-name'), patentNumber: 'CN999999991A', status: 'published' }
+    const existing = [{ ...publicVersion, patentNumber: 'CN999999991B', status: 'granted', raw: 'existing granted patent' }]
+    assert.strictEqual(compareRecord(publicVersion, existing).status, 'existing')
   })
 
   return {

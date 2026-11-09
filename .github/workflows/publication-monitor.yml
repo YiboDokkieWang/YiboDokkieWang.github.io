@@ -155,6 +155,11 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
+          has_issues=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.has_issues')
+          if [ "$has_issues" != "true" ]; then
+            echo "Repository Issues are disabled. The complete report is available in this workflow summary and, when changes exist, in the generated pull request." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           issue=$(gh issue list --state open --search 'Publication Monitor Reports in:title' --json number --jq '.[0].number')
           if [ -z "$issue" ]; then
             issue=$(gh issue create \

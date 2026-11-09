@@ -17,6 +17,19 @@ function stripXml(value = '') {
   return decodeXml(String(value).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
 }
 
+function decodeHtml(value = '') {
+  return decodeXml(value)
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&hellip;/gi, '…')
+    .replace(/&mdash;/gi, '—')
+    .replace(/&ndash;/gi, '–')
+    .replace(/&#39;/g, "'")
+}
+
+function stripHtml(value = '') {
+  return decodeHtml(String(value).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
+}
+
 function tagBlocks(xml, tag) {
   const pattern = new RegExp(`<(?:[\\w-]+:)?${tag}\\b[^>]*>[\\s\\S]*?<\\/(?:[\\w-]+:)?${tag}>`, 'gi')
   return String(xml).match(pattern) || []
@@ -80,6 +93,82 @@ function parseEpoExchangeXml(xml) {
       source: 'EPO OPS',
     }
   }).filter(record => record.title || record.patentNumber)
+}
+
+function parseGooglePatentResults(payload) {
+  const clusters = payload?.results?.cluster || []
+  return clusters.flatMap(cluster => cluster.result || []).map(item => item.patent || {}).map(patent => {
+    const patentNumber = String(patent.publication_number || '').replace(/[.\s-]/g, '').toUpperCase()
+    const kind = patentNumber.match(/[A-Z]\d?$/i)?.[0] || ''
+    const title = stripHtml(patent.title || '').replace(/\s*…\s*$/, '').trim()
+    const inventors = stripHtml(patent.inventor || '').split(/[;,；，]/).map(value => value.trim()).filter(Boolean)
+    const applicants = stripHtml(patent.assignee || '').split(/[;,；，]/).map(value => value.trim()).filter(Boolean)
+    const date = patent.grant_date || patent.publication_date || patent.filing_date || patent.priority_date || ''
+    return {
+      fixture: false,
+      type: 'patent',
+      title,
+      authors: inventors,
+      inventors,
+      applicants,
+      abstract: stripHtml(patent.snippet || ''),
+      classifications: [],
+      year: Number(String(date).slice(0, 4)) || null,
+      date,
+      patentNumber,
+      status: patent.grant_date || /^B\d?$|^C\d?$|^U\d?$/i.test(kind) ? 'granted' : 'published',
+      legalStatus: patent.grant_date ? 'granted' : 'published-or-pending',
+      url: patentNumber ? `https://patents.google.com/patent/${encodeURIComponent(patentNumber)}/zh` : '',
+      familyKey: patentRoot(patentNumber),
+      source: 'Google Patents public search',
+    }
+  }).filter(record => record.patentNumber && record.title)
+}
+
+function parseCsvRows(text = '') {
+  const rows = []
+  let row = []
+  let cell = ''
+  let quoted = false
+  for (let index = 0; index < String(text).length; index++) {
+    const character = text[index]
+    if (quoted && character === '"' && text[index + 1] === '"') {
+      cell += '"'
+      index++
+    } else if (character === '"') quoted = !quoted
+    else if (character === ',' && !quoted) {
+      row.push(cell)
+      cell = ''
+    } else if ((character === '\n' || character === '\r') && !quoted) {
+      if (character === '\r' && text[index + 1] === '\n') index++
+      row.push(cell)
+      if (row.some(value => value !== '')) rows.push(row)
+      row = []
+      cell = ''
+    } else cell += character
+  }
+  if (cell || row.length) {
+    row.push(cell)
+    if (row.some(value => value !== '')) rows.push(row)
+  }
+  return rows
+}
+
+function parseGooglePatentCsv(text) {
+  const rows = parseCsvRows(text)
+  const headerIndex = rows.findIndex(row => String(row[0]).trim().toLowerCase() === 'id')
+  if (headerIndex === -1) throw new Error('Google Patents未返回可识别的CSV表头')
+  return rows.slice(headerIndex + 1).map(row => ({
+    title: row[1] || '',
+    assignee: row[2] || '',
+    inventor: row[3] || '',
+    priority_date: row[4] || '',
+    filing_date: row[5] || '',
+    publication_date: row[6] || '',
+    grant_date: row[7] || '',
+    publication_number: String(row[0] || '').replace(/^patent\//i, '').replace(/\/(?:en|zh)$/i, ''),
+    snippet: '',
+  })).filter(item => item.publication_number && item.title)
 }
 
 function normalizePartyName(value = '') {
@@ -157,6 +246,10 @@ function assessPatentRelevance(record, profile = {}) {
   if (affiliationMatches.length) {
     score += 2
     reasons.push(`申请人单位与履历相符：${affiliationMatches.join('、')}`)
+  }
+  if (applicantMatches.length) {
+    score += 2
+    reasons.push(`申请人姓名匹配本人：${applicantMatches.join('、')}`)
   }
   const threshold = Number(profile.minimumRelevanceScore) || 5
   const matchedKeywords = [...new Set([...strongTitle, ...strongAbstract, ...supportingTitle, ...supportingAbstract])]
@@ -262,12 +355,57 @@ async function searchEpoPatentsByNames(names, options = {}) {
   return parseEpoExchangeXml(await response.text())
 }
 
+function googlePatentSearchUrl(alias) {
+  const query = `inventor="${String(alias).replace(/["\\]/g, ' ').trim()}"`
+  return `https://patents.google.com/xhr/query?url=${encodeURIComponent(query)}&exp=&download=true`
+}
+
+async function fetchGooglePatentCsv(alias) {
+  const delays = [0, 2500, 6000]
+  let lastError
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt]) await new Promise(resolve => setTimeout(resolve, delays[attempt]))
+    try {
+      const response = await fetchWithTimeout(googlePatentSearchUrl(alias), {
+        headers: {
+          Accept: 'text/csv,*/*;q=0.8',
+          Referer: 'https://patents.google.com/',
+          'User-Agent': 'Mozilla/5.0 (compatible; YiboDokkieWang-Publication-Monitor/1.0)',
+        },
+      })
+      return response.text()
+    } catch (error) {
+      lastError = error
+      if (!/^(429|5\d\d)\b/.test(error.message)) break
+    }
+  }
+  throw lastError
+}
+
+async function searchGooglePatentsByInventors(names, options = {}) {
+  const aliases = [...new Set((options.aliases || names || []).map(String).map(value => value.trim()).filter(Boolean))]
+  const records = []
+
+  for (const alias of aliases) {
+    const csv = await fetchGooglePatentCsv(alias)
+    const items = parseGooglePatentCsv(csv)
+    records.push(...parseGooglePatentResults({ results: { cluster: [{ result: items.map(patent => ({ patent })) }] } }))
+  }
+
+  const byNumber = new Map()
+  records.forEach(record => byNumber.set(record.patentNumber, record))
+  return [...byNumber.values()]
+}
+
 module.exports = {
   assessPatentRelevance,
   deduplicatePatentFamilies,
   filterRelevantPatents,
+  parseGooglePatentCsv,
+  parseGooglePatentResults,
   parseEpoExchangeXml,
   patentRoot,
   requestEpoToken,
   searchEpoPatentsByNames,
+  searchGooglePatentsByInventors,
 }
