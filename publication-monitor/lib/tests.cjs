@@ -12,6 +12,7 @@ const {
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
 const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults } = require('./patents.cjs')
+const { parseApprovalIssue, renderApprovalIssue } = require('./approval.cjs')
 
 function runSelfTests() {
   const results = []
@@ -182,6 +183,28 @@ function runSelfTests() {
     }
     assert(buildEntry(record, 'en').includes('Adaptive battery SOC estimation method'))
     assert(buildEntry(record, 'zh').includes('一种自适应锂电池SOC估计方法'))
+  })
+
+  test('确认页保留中文原题并只读取已勾选成果', () => {
+    const report = {
+      checkedAt: '2026-11-09T00:00:00.000Z',
+      items: [
+        { status: 'new', type: 'patent', year: 2026, title: 'English translation', notificationTitle: '一种中文专利', patentNumber: 'CN123B' },
+        { status: 'new', type: 'journal', year: 2026, title: 'An English paper', notificationTitle: 'An English paper', doi: '10.1000/test' },
+        { status: 'existing', type: 'conference', year: 2025, title: 'Existing paper', doi: '10.1000/existing' },
+      ],
+    }
+    const issue = renderApprovalIssue(report)
+    assert(issue.includes('一种中文专利'))
+    assert(!issue.includes('English translation'))
+    assert(!issue.includes('Existing paper'))
+    const checked = issue
+      .replace('- [ ] <!-- publication-id:patent%3ACN123B -->', '- [x] <!-- publication-id:patent%3ACN123B -->')
+      .replace('- [ ] <!-- publication-confirm -->', '- [x] <!-- publication-confirm -->')
+    assert.deepStrictEqual(parseApprovalIssue(checked), {
+      confirmed: true,
+      selectedIdentifiers: ['patent:CN123B'],
+    })
   })
 
   test('专利公开版本可被授权版本替换', () => {

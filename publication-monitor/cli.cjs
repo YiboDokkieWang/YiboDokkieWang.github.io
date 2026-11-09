@@ -9,6 +9,7 @@ const {
 } = require('./lib/core.cjs')
 const { identify, scanConfiguredSources } = require('./lib/sources.cjs')
 const { runSelfTests } = require('./lib/tests.cjs')
+const { publicationIdentifier } = require('./lib/approval.cjs')
 
 const STATE_PATH = path.join(__dirname, 'state.json')
 
@@ -44,10 +45,7 @@ function outputReport(report, outputPath) {
 }
 
 function identifierFor(record) {
-  if (record.doi) return `doi:${record.doi.toLowerCase()}`
-  if (record.patentNumber) return `patent:${record.patentNumber.toUpperCase()}`
-  if (record.ieeeDocumentId) return `ieee:${record.ieeeDocumentId}`
-  return `title:${String(record.title || '').toLowerCase().replace(/\W+/g, '-')}`
+  return publicationIdentifier(record)
 }
 
 function updateState(report, records = []) {
@@ -146,6 +144,9 @@ function markdownReport(report) {
 async function commandScan(args) {
   const scan = await scanConfiguredSources()
   const plans = scan.records.map(record => planRecord(record))
+  const selectedIdentifiers = args['selected-file']
+    ? new Set(JSON.parse(fs.readFileSync(args['selected-file'], 'utf8')).selectedIdentifiers || [])
+    : null
   const counts = {
     found: plans.length,
     existing: plans.filter(plan => plan.comparison.status === 'existing').length,
@@ -157,11 +158,17 @@ async function commandScan(args) {
   if (args.apply) {
     const actionablePlans = plans
       .filter(plan => ['new', 'upgrade'].includes(plan.comparison.status))
+      .filter(plan => !selectedIdentifiers || selectedIdentifiers.has(identifierFor(plan.record)))
       .sort((left, right) => {
         const leftDate = Date.parse(left.record.date || `${left.record.year || 0}-01-01`) || 0
         const rightDate = Date.parse(right.record.date || `${right.record.year || 0}-01-01`) || 0
         return leftDate - rightDate
       })
+    if (selectedIdentifiers) {
+      const foundIdentifiers = new Set(actionablePlans.map(plan => identifierFor(plan.record)))
+      const missingSelections = [...selectedIdentifiers].filter(identifier => !foundIdentifiers.has(identifier))
+      if (missingSelections.length) throw new Error(`本次重新扫描未找到已选择的成果：${missingSelections.join(', ')}`)
+    }
     for (const initialPlan of actionablePlans) {
       const currentPlan = planRecord(initialPlan.record)
       if (!['new', 'upgrade'].includes(currentPlan.comparison.status)) continue
@@ -179,14 +186,17 @@ async function commandScan(args) {
       status: plan.comparison.status,
       type: plan.record.type,
       title: plan.record.title,
+      identifier: identifierFor(plan.record),
       notificationTitle: originalTitleForNotification(plan.record),
       originalLanguage: plan.record.originalLanguage,
       year: plan.record.year,
       doi: plan.record.doi,
       patentNumber: plan.record.patentNumber,
       ieeeDocumentId: plan.record.ieeeDocumentId,
+      url: plan.record.url,
     })),
     changedPublications: [...new Set(changed)].length > 0,
+    selectedIdentifiers: selectedIdentifiers ? [...selectedIdentifiers] : [],
   }
   updateState(report, scan.records)
   return report

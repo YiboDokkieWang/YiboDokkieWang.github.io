@@ -93,7 +93,7 @@ jobs:
               node publication-monitor/cli.cjs inventory --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
             scan)
-              node publication-monitor/cli.cjs scan --apply --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              node publication-monitor/cli.cjs scan --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
             add)
               node publication-monitor/cli.cjs identify --apply --type "${{ inputs.result_type }}" --input-kind "${{ inputs.input_kind }}" --value "$MANUAL_INPUT_VALUE" --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
@@ -117,8 +117,34 @@ jobs:
           esac
           cat publication-monitor/output/report.md >> "$GITHUB_STEP_SUMMARY"
           changed=$(node -e "const r=require('./publication-monitor/output/report.json'); process.stdout.write(String(Boolean(r.changedPublications)))")
+          actionable=$(node -e "const r=require('./publication-monitor/output/report.json'); process.stdout.write(String((r.counts?.missing || 0) + (r.counts?.upgrades || 0)))")
           echo "operation=$operation" >> "$GITHUB_OUTPUT"
           echo "changed_publications=$changed" >> "$GITHUB_OUTPUT"
+          echo "actionable_count=$actionable" >> "$GITHUB_OUTPUT"
+
+      - name: Create owner approval checklist
+        if: steps.monitor.outputs.operation == 'scan' && steps.monitor.outputs.actionable_count != '0'
+        shell: bash
+        run: |
+          has_issues=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.has_issues')
+          if [ "$has_issues" != "true" ]; then
+            echo "GitHub Issues must be enabled so the owner-only approval checklist can be created." >&2
+            exit 1
+          fi
+          gh label create publication-review --color 1D76DB --description "Owner approval for publication monitor results" --force
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          node publication-monitor/approval-cli.cjs render \
+            --report publication-monitor/output/report.json \
+            --output publication-monitor/output/approval.md \
+            --run-url "$run_url"
+          issue_url=$(gh issue create \
+            --title "发表成果待确认：请选择本次新增成果" \
+            --body-file publication-monitor/output/approval.md \
+            --label publication-review \
+            --assignee YiboDokkieWang)
+          echo "## 请在登录 GitHub 后勾选成果" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "${issue_url}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create publication update pull request
         if: steps.monitor.outputs.changed_publications == 'true'
@@ -152,7 +178,7 @@ jobs:
           git push origin main
 
       - name: Notify manual run with a report issue
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && steps.monitor.outputs.operation != 'scan'
         shell: bash
         run: |
           has_issues=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.has_issues')
