@@ -60,7 +60,8 @@ function readBody(request) {
 
 function safeRecord(record = {}) {
   const allowed = [
-    'fixture', 'type', 'title', 'titleZh', 'authors', 'authorsZh', 'venue', 'year', 'date',
+    'fixture', 'type', 'title', 'titleEn', 'titleZh', 'originalTitle', 'originalLanguage',
+    'authors', 'authorsEn', 'authorsZh', 'venue', 'year', 'date',
     'volume', 'issue', 'pages', 'articleNumber', 'doi', 'url', 'patentNumber', 'status',
     'source', 'ieeeDocumentId', 'semanticScholarId',
     'matchScore', 'matchBreakdown', 'sourceScore',

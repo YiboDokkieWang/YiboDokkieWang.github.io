@@ -11,7 +11,7 @@ const {
   planRecord,
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
-const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentResults } = require('./patents.cjs')
+const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults } = require('./patents.cjs')
 
 function runSelfTests() {
   const results = []
@@ -163,6 +163,25 @@ function runSelfTests() {
     assert.strictEqual(rows.length, 1)
     assert.strictEqual(rows[0].publication_number, 'CN117907843A')
     assert(rows[0].inventor.includes('欧阳元兵'))
+  })
+
+  test('中文专利页面可保留中文原题用于通知', () => {
+    const html = '<html lang="zh"><head><meta name="DC.title" content="一种适用于锂电池SOC估计的自适应卡尔曼滤波算法"><meta name="DC.description" content="本发明属于锂电池技术领域"><meta name="DC.contributor" scheme="inventor" content="王艺博"><meta scheme="inventor" name="DC.contributor" content="欧阳元兵"><meta name="DC.relation" scheme="CPC" content="G01R31/367"></head></html>'
+    const metadata = parseGooglePatentHtml(html, 'zh')
+    assert.strictEqual(metadata.title, '一种适用于锂电池SOC估计的自适应卡尔曼滤波算法')
+    assert.deepStrictEqual(metadata.inventors, ['王艺博', '欧阳元兵'])
+    assert(metadata.classifications.includes('G01R31/367'))
+  })
+
+  test('网站条目分别使用中英文专利标题', () => {
+    const record = {
+      ...loadFixture('patent-relevant-same-name'),
+      title: 'Adaptive battery SOC estimation method',
+      titleEn: 'Adaptive battery SOC estimation method',
+      titleZh: '一种自适应锂电池SOC估计方法',
+    }
+    assert(buildEntry(record, 'en').includes('Adaptive battery SOC estimation method'))
+    assert(buildEntry(record, 'zh').includes('一种自适应锂电池SOC估计方法'))
   })
 
   test('专利公开版本可被授权版本替换', () => {

@@ -10,6 +10,7 @@
 - 检查 `Files changed` 后点击 `Merge pull request`，GitHub Pages 才会自动更新公开网站。
 - 月度扫描没有发现新成果时不会创建 Pull Request，也不会发送“有新成果”的通知。
 - 手动 `scan` 的完整报告始终保存在 workflow summary 中；仓库启用 Issues 时还会同步到 `Publication Monitor Reports` Issue。仓库关闭 Issues 时会自动跳过，不再误报失败。
+- 扫描报告、Pull Request 和邮件通知保留成果的原始语言：中文论文或专利显示中文，英文成果显示英文。只有确认更新网站时，程序才分别生成中文页和英文页所需的条目。
 
 不使用“邮件中的免登录确认链接”，因为转发或泄露该链接会允许他人修改网站。确认操作始终受 GitHub 账户登录保护。
 

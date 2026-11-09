@@ -134,7 +134,7 @@ jobs:
           gh pr create \
             --base main \
             --head "$branch" \
-            --title "Publication Monitor: review website update" \
+            --title "发表成果监测：请确认网站更新" \
             --body-file publication-monitor/output/report.md \
             --reviewer YiboDokkieWang
 
@@ -160,10 +160,10 @@ jobs:
             echo "Repository Issues are disabled. The complete report is available in this workflow summary and, when changes exist, in the generated pull request." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          issue=$(gh issue list --state open --search 'Publication Monitor Reports in:title' --json number --jq '.[0].number')
+          issue=$(gh issue list --state open --search '发表成果扫描报告 in:title' --json number --jq '.[0].number')
           if [ -z "$issue" ]; then
             issue=$(gh issue create \
-              --title "Publication Monitor Reports" \
+              --title "发表成果扫描报告" \
               --body "@YiboDokkieWang 手动检查报告会集中记录在这里。" \
               --assignee YiboDokkieWang | awk -F/ '{print $NF}')
           fi

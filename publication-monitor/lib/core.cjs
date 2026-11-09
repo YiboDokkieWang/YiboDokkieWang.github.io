@@ -248,8 +248,13 @@ function paperLink(record, language) {
 }
 
 function buildEntry(record, language = 'en') {
-  const authors = formatAuthors(language === 'zh' && record.authorsZh?.length ? record.authorsZh : record.authors, language)
-  const title = language === 'zh' && record.titleZh ? record.titleZh : record.title
+  const localizedAuthors = language === 'zh'
+    ? (record.authorsZh?.length ? record.authorsZh : record.authors)
+    : (record.authorsEn?.length ? record.authorsEn : record.authors)
+  const authors = formatAuthors(localizedAuthors, language)
+  const title = language === 'zh'
+    ? (record.titleZh || record.title)
+    : (record.titleEn || record.title)
   if (record.type === 'patent') {
     const number = record.patentNumber || '【专利号】'
     const date = language === 'zh' ? record.date : englishDate(record.date)

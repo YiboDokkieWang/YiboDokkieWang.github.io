@@ -40,6 +40,16 @@ function tagValues(xml, tag) {
   return [...String(xml).matchAll(pattern)].map(match => stripXml(match[1])).filter(Boolean)
 }
 
+function localizedTagValues(xml, tag) {
+  return tagBlocks(xml, tag).map(block => {
+    const openingTag = block.match(new RegExp(`<(?:[\\w-]+:)?${tag}\\b[^>]*>`, 'i'))?.[0] || ''
+    return {
+      language: attribute(openingTag, 'lang').toLowerCase(),
+      value: stripXml(block),
+    }
+  }).filter(item => item.value)
+}
+
 function attribute(openingTag, name) {
   return openingTag.match(new RegExp(`${name}=["']([^"']+)["']`, 'i'))?.[1] || ''
 }
@@ -65,7 +75,12 @@ function parseEpoExchangeXml(xml) {
     const documentNumber = attribute(openingTag, 'doc-number') || tagValues(tagBlocks(block, 'publication-reference')[0] || block, 'doc-number')[0] || ''
     const kind = attribute(openingTag, 'kind') || tagValues(tagBlocks(block, 'publication-reference')[0] || block, 'kind')[0] || ''
     const patentNumber = `${country}${documentNumber}${kind}`.replace(/[.\s-]/g, '').toUpperCase()
-    const titles = tagValues(block, 'invention-title')
+    const titles = localizedTagValues(block, 'invention-title')
+    const titleZh = titles.find(item => item.language.startsWith('zh') || /[\u3400-\u9fff]/.test(item.value))?.value || ''
+    const titleEn = titles.find(item => item.language.startsWith('en'))?.value
+      || titles.find(item => !/[\u3400-\u9fff]/.test(item.value))?.value
+      || ''
+    const title = titleEn || titleZh || titles[0]?.value || ''
     const inventors = tagBlocks(block, 'inventor').flatMap(item => tagValues(item, 'name'))
     const applicants = tagBlocks(block, 'applicant').flatMap(item => tagValues(item, 'name'))
     const classifications = [
@@ -78,7 +93,10 @@ function parseEpoExchangeXml(xml) {
     return {
       fixture: false,
       type: 'patent',
-      title: titles[0] || '',
+      title,
+      titleEn,
+      titleZh,
+      originalLanguage: titleZh && String(country).toUpperCase() === 'CN' ? 'zh' : (titleEn ? 'en' : ''),
       authors: [...new Set(inventors)],
       inventors: [...new Set(inventors)],
       applicants: [...new Set(applicants)],
@@ -89,7 +107,7 @@ function parseEpoExchangeXml(xml) {
       patentNumber,
       status: /^B\d?$|^C\d?$|^U\d?$/i.test(kind) ? 'granted' : 'published',
       url: patentNumber ? `https://worldwide.espacenet.com/patent/search?q=pn%3D${encodeURIComponent(patentNumber)}` : '',
-      familyKey: `${patentRoot(patentNumber)}:${normalizeTitle(titles[0] || '')}`,
+      familyKey: `${patentRoot(patentNumber)}:${normalizeTitle(title)}`,
       source: 'EPO OPS',
     }
   }).filter(record => record.title || record.patentNumber)
@@ -101,6 +119,7 @@ function parseGooglePatentResults(payload) {
     const patentNumber = String(patent.publication_number || '').replace(/[.\s-]/g, '').toUpperCase()
     const kind = patentNumber.match(/[A-Z]\d?$/i)?.[0] || ''
     const title = stripHtml(patent.title || '').replace(/\s*…\s*$/, '').trim()
+    const titleIsChinese = /[\u3400-\u9fff]/.test(title)
     const inventors = stripHtml(patent.inventor || '').split(/[;,；，]/).map(value => value.trim()).filter(Boolean)
     const applicants = stripHtml(patent.assignee || '').split(/[;,；，]/).map(value => value.trim()).filter(Boolean)
     const date = patent.grant_date || patent.publication_date || patent.filing_date || patent.priority_date || ''
@@ -108,6 +127,9 @@ function parseGooglePatentResults(payload) {
       fixture: false,
       type: 'patent',
       title,
+      titleEn: titleIsChinese ? '' : title,
+      titleZh: titleIsChinese ? title : '',
+      originalLanguage: patentNumber.startsWith('CN') || titleIsChinese ? 'zh' : 'en',
       authors: inventors,
       inventors,
       applicants,
@@ -169,6 +191,36 @@ function parseGooglePatentCsv(text) {
     publication_number: String(row[0] || '').replace(/^patent\//i, '').replace(/\/(?:en|zh)$/i, ''),
     snippet: '',
   })).filter(item => item.publication_number && item.title)
+}
+
+function metaAttributes(tag) {
+  const attributes = {}
+  for (const match of tag.matchAll(/([\w:-]+)=["']([\s\S]*?)["']/g)) attributes[match[1].toLowerCase()] = decodeHtml(match[2])
+  return attributes
+}
+
+function parseGooglePatentHtml(html, language = 'zh') {
+  const metadata = [...String(html).matchAll(/<meta\b[^>]*>/gi)].map(match => metaAttributes(match[0]))
+  const value = (name, scheme = '') => metadata.find(item =>
+    String(item.name || '').toLowerCase() === name.toLowerCase()
+    && (!scheme || String(item.scheme || '').toLowerCase() === scheme.toLowerCase()))?.content || ''
+  const values = (name, scheme = '') => metadata.filter(item =>
+    String(item.name || '').toLowerCase() === name.toLowerCase()
+    && (!scheme || String(item.scheme || '').toLowerCase() === scheme.toLowerCase()))
+    .map(item => stripHtml(item.content || ''))
+    .filter(Boolean)
+  const title = stripHtml(value('DC.title'))
+  return {
+    language,
+    title,
+    abstract: stripHtml(value('DC.description')),
+    inventors: values('DC.contributor', 'inventor'),
+    applicants: values('DC.contributor', 'assignee'),
+    classifications: [...new Set([
+      ...values('DC.relation', 'CPC'),
+      ...values('DC.relation', 'IPC'),
+    ])],
+  }
 }
 
 function normalizePartyName(value = '') {
@@ -382,6 +434,29 @@ async function fetchGooglePatentCsv(alias) {
   throw lastError
 }
 
+async function enrichGooglePatentChinese(record) {
+  if (!record?.patentNumber || record.titleZh) return record
+  const response = await fetchWithTimeout(`https://patents.google.com/patent/${encodeURIComponent(record.patentNumber)}/zh`, {
+    headers: {
+      Accept: 'text/html,*/*;q=0.8',
+      Referer: 'https://patents.google.com/',
+      'User-Agent': 'Mozilla/5.0 (compatible; YiboDokkieWang-Publication-Monitor/1.0)',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.5',
+    },
+  })
+  const metadata = parseGooglePatentHtml(await response.text(), 'zh')
+  if (!metadata.title || !/[\u3400-\u9fff]/.test(metadata.title)) return record
+  return {
+    ...record,
+    titleZh: metadata.title,
+    authorsZh: metadata.inventors.length ? metadata.inventors : record.authorsZh,
+    abstractZh: metadata.abstract,
+    applicantsZh: metadata.applicants,
+    classifications: metadata.classifications.length ? metadata.classifications : record.classifications,
+    originalLanguage: 'zh',
+  }
+}
+
 async function searchGooglePatentsByInventors(names, options = {}) {
   const aliases = [...new Set((options.aliases || names || []).map(String).map(value => value.trim()).filter(Boolean))]
   const records = []
@@ -400,8 +475,10 @@ async function searchGooglePatentsByInventors(names, options = {}) {
 module.exports = {
   assessPatentRelevance,
   deduplicatePatentFamilies,
+  enrichGooglePatentChinese,
   filterRelevantPatents,
   parseGooglePatentCsv,
+  parseGooglePatentHtml,
   parseGooglePatentResults,
   parseEpoExchangeXml,
   patentRoot,

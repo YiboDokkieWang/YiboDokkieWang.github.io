@@ -69,24 +69,48 @@ function updateState(report, records = []) {
   fs.writeFileSync(STATE_PATH, `${JSON.stringify(next, null, 2)}\n`)
 }
 
+function containsChinese(value = '') {
+  return /[\u3400-\u9fff]/.test(String(value))
+}
+
+function originalTitleForNotification(record = {}) {
+  if (record.originalLanguage === 'zh' || record.titleZh || containsChinese(record.title)) {
+    if (record.titleZh) return record.titleZh
+    if (containsChinese(record.originalTitle)) return record.originalTitle
+    if (containsChinese(record.title)) return record.title
+    return record.patentNumber
+      ? `${record.patentNumber}（中文题目暂未获取，请打开专利链接核对）`
+      : '中文成果（中文题目暂未获取，请打开原始链接核对）'
+  }
+  return record.originalTitle || record.title || ''
+}
+
+function localizedStatus(value) {
+  return ({ new: '新增', existing: '已存在', upgrade: '正式/授权版本更新', ambiguous: '待确认' })[value] || value
+}
+
+function localizedType(value) {
+  return ({ journal: '期刊论文', conference: '会议论文', patent: '专利' })[value] || value
+}
+
 function markdownReport(report) {
   const lines = [
-    `# Publication Monitor Report`,
+    `# 发表成果扫描报告`,
     '',
-    `- Mode: ${report.mode}`,
-    `- Checked at: ${report.checkedAt || new Date().toISOString()}`,
+    `- 运行方式：${report.mode}`,
+    `- 检查时间：${report.checkedAt || new Date().toISOString()}`,
   ]
   if (report.counts) {
     lines.push(
-      `- Found: ${report.counts.found || 0}`,
-      `- Already on website: ${report.counts.existing || 0}`,
-      `- Missing: ${report.counts.missing || 0}`,
-      `- Early Access upgrades: ${report.counts.upgrades || 0}`,
-      `- Ambiguous: ${report.counts.ambiguous || 0}`,
+      `- 数据源成果：${report.counts.found || 0}`,
+      `- 网站已有：${report.counts.existing || 0}`,
+      `- 网站缺少：${report.counts.missing || 0}`,
+      `- 正式/授权版本更新：${report.counts.upgrades || 0}`,
+      `- 待确认：${report.counts.ambiguous || 0}`,
     )
   }
   if (report.sourceStatus?.length) {
-    lines.push('', '## Sources', '')
+    lines.push('', '## 数据源', '')
     report.sourceStatus.forEach(source => {
       const detail = source.skipped ? `SKIP (${source.message})` : source.ok ? `${source.count}` : source.error
       lines.push(`- ${source.skipped ? 'SKIP' : source.ok ? 'PASS' : 'FAIL'} ${source.source}: ${detail}`)
@@ -95,16 +119,16 @@ function markdownReport(report) {
   if (report.patentFilter) {
     lines.push(
       '',
-      '## Patent identity and research filter',
+      '## 专利身份与研究方向筛选',
       '',
-      `- Examined same-name patent candidates: ${report.patentFilter.examined || 0}`,
-      `- Relevant candidates retained: ${report.patentFilter.relevant || 0}`,
-      `- Unrelated same-name candidates ignored: ${report.patentFilter.ignored || 0}`,
+      `- 检查同名专利候选：${report.patentFilter.examined || 0}`,
+      `- 保留相关专利：${report.patentFilter.relevant || 0}`,
+      `- 忽略无关同名专利：${report.patentFilter.ignored || 0}`,
     )
   }
   if (report.items?.length) {
-    lines.push('', '## Results', '', '| Status | Type | Year | Title | Identifier |', '|---|---|---:|---|---|')
-    report.items.forEach(item => lines.push(`| ${item.status} | ${item.type} | ${item.year || ''} | ${String(item.title || '').replaceAll('|', '\\|')} | ${item.doi || item.patentNumber || item.ieeeDocumentId || ''} |`))
+    lines.push('', '## 扫描结果', '', '| 状态 | 类型 | 年份 | 原始语言题目 | 标识符 |', '|---|---|---:|---|---|')
+    report.items.forEach(item => lines.push(`| ${localizedStatus(item.status)} | ${localizedType(item.type)} | ${item.year || ''} | ${String(item.notificationTitle || item.title || '').replaceAll('|', '\\|')} | ${item.doi || item.patentNumber || item.ieeeDocumentId || ''} |`))
   }
   if (report.changedPublications) {
     lines.push(
@@ -155,6 +179,8 @@ async function commandScan(args) {
       status: plan.comparison.status,
       type: plan.record.type,
       title: plan.record.title,
+      notificationTitle: originalTitleForNotification(plan.record),
+      originalLanguage: plan.record.originalLanguage,
       year: plan.record.year,
       doi: plan.record.doi,
       patentNumber: plan.record.patentNumber,
@@ -181,7 +207,7 @@ async function commandIdentify(args) {
       upgrades: Number(plan.comparison.status === 'upgrade'),
       ambiguous: Number(plan.comparison.status === 'ambiguous'),
     },
-    items: [{ status: plan.comparison.status, ...plan.record }],
+    items: [{ ...plan.record, status: plan.comparison.status, notificationTitle: originalTitleForNotification(plan.record) }],
     plan,
     changedPublications: changed.length > 0,
     warning: result.warning || '',
@@ -195,7 +221,7 @@ function commandFixture(args) {
       mode: 'fixture',
       checkedAt: new Date().toISOString(),
       counts: { found: 1, existing: 0, missing: 0, upgrades: 1, ambiguous: 0 },
-      items: [{ status: 'upgrade', ...fixture.final }],
+      items: [{ ...fixture.final, status: 'upgrade', notificationTitle: originalTitleForNotification(fixture.final) }],
       changedPublications: false,
       testOnly: true,
     }
@@ -205,7 +231,7 @@ function commandFixture(args) {
     mode: 'fixture',
     checkedAt: new Date().toISOString(),
     counts: { found: 1, existing: 0, missing: 1, upgrades: 0, ambiguous: 0 },
-    items: [{ status: plan.comparison.status, ...fixture }],
+    items: [{ ...fixture, status: plan.comparison.status, notificationTitle: originalTitleForNotification(fixture) }],
     plan,
     changedPublications: false,
     testOnly: true,

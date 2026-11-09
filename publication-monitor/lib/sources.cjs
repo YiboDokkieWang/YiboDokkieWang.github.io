@@ -1,7 +1,15 @@
 const { cleanDoi, loadConfig, normalizeTitle, titleSimilarity } = require('./core.cjs')
-const { filterRelevantPatents, searchEpoPatentsByNames, searchGooglePatentsByInventors } = require('./patents.cjs')
+const { enrichGooglePatentChinese, filterRelevantPatents, searchEpoPatentsByNames, searchGooglePatentsByInventors } = require('./patents.cjs')
 
 const REQUEST_TIMEOUT_MS = 15000
+
+function addOriginalLanguage(record) {
+  const title = String(record.title || '')
+  if (/[\u3400-\u9fff]/.test(title)) {
+    return { ...record, titleZh: record.titleZh || title, originalLanguage: 'zh' }
+  }
+  return { ...record, originalLanguage: record.originalLanguage || 'en' }
+}
 
 async function fetchJson(url, options = {}) {
   const controller = new AbortController()
@@ -65,7 +73,7 @@ function fromCrossrefItem(item, requestedType = 'auto') {
     sourceScore: Number(item.score) || 0,
   }
   if (!record.title) throw new Error('Crossref did not return a title')
-  return record
+  return addOriginalLanguage(record)
 }
 
 async function lookupCrossrefDoi(doi, requestedType = 'auto') {
@@ -469,7 +477,7 @@ async function listOrcidWorks(orcidId) {
       const year = Number(dateValue?.year?.value) || null
       const month = Number(dateValue?.month?.value) || 1
       const day = Number(dateValue?.day?.value) || 1
-      records.push({
+      records.push(addOriginalLanguage({
         fixture: false,
         type: 'patent',
         title: detail?.title?.title?.value || summary.title?.title?.value || '',
@@ -484,7 +492,7 @@ async function listOrcidWorks(orcidId) {
         url: summary.url?.value || '',
         status: /[BCU]\d?$/i.test(patentNumber) ? 'granted' : 'published',
         source: 'ORCID',
-      })
+      }))
       continue
     }
     const record = {
@@ -505,7 +513,7 @@ async function listOrcidWorks(orcidId) {
         continue
       } catch {}
     }
-    records.push(record)
+    records.push(addOriginalLanguage(record))
   }
   return records
 }
@@ -570,12 +578,22 @@ async function scanConfiguredSources() {
   }
   const patentCandidates = all.filter(record => record.type === 'patent')
   const patentFilter = filterRelevantPatents(patentCandidates, config.patentSearch || {})
+  let localizedChinesePatents = 0
+  for (let index = 0; index < patentFilter.relevant.length; index++) {
+    const record = patentFilter.relevant[index]
+    if (record.source !== 'Google Patents public search' || record.originalLanguage !== 'zh' || record.titleZh) continue
+    try {
+      patentFilter.relevant[index] = await enrichGooglePatentChinese(record)
+      if (patentFilter.relevant[index].titleZh) localizedChinesePatents++
+    } catch {}
+  }
   sourceStatus.push({
     source: 'Patent identity and research filter',
     ok: true,
     count: patentFilter.relevant.length,
     ignored: patentFilter.ignored.length,
     examined: patentFilter.examined,
+    localizedChinesePatents,
   })
   const eligibleRecords = [
     ...all.filter(record => record.type !== 'patent'),
