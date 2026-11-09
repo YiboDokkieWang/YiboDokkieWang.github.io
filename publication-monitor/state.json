@@ -1,15 +1,22 @@
 {
   "schemaVersion": 1,
-  "lastCheckedAt": "2026-11-09T08:19:18.521Z",
+  "lastCheckedAt": "2026-11-09T09:47:01.746Z",
   "knownIdentifiers": [
     "doi:10.1016/j.rser.2026.116708",
     "doi:10.1109/etfg61999.2025.11401175",
-    "doi:10.1109/tte.2026.3684521"
+    "doi:10.1109/tte.2026.3684521",
+    "patent:CN113364017B",
+    "patent:CN115412006A",
+    "patent:CN116225123A",
+    "patent:CN116599179A",
+    "patent:CN117458638A",
+    "patent:CN117907843A",
+    "patent:CN118889528A"
   ],
   "lastRun": {
     "mode": "scan",
-    "found": 3,
-    "missing": 2,
+    "found": 10,
+    "missing": 8,
     "upgrades": 0,
     "ambiguous": 0
   }
