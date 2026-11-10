@@ -1,6 +1,6 @@
 const fs = require('fs')
 const path = require('path')
-const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue } = require('./lib/approval.cjs')
+const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue, renderApprovalNotification } = require('./lib/approval.cjs')
 
 function parseArgs(argv) {
   const args = { _: [] }
@@ -32,7 +32,19 @@ function main() {
   if (command === 'render') {
     if (!args.report || !args.output) throw new Error('render requires --report and --output')
     const report = JSON.parse(fs.readFileSync(args.report, 'utf8'))
-    writeFile(args.output, renderApprovalIssue(report, { runUrl: args['run-url'] || '' }))
+    writeFile(args.output, renderApprovalIssue(report, {
+      runUrl: args['run-url'] || '',
+      issueUrl: args['issue-url'] || '',
+    }))
+    return
+  }
+  if (command === 'render-notification') {
+    if (!args.report || !args.output) throw new Error('render-notification requires --report and --output')
+    const report = JSON.parse(fs.readFileSync(args.report, 'utf8'))
+    writeFile(args.output, renderApprovalNotification(report, {
+      runUrl: args['run-url'] || '',
+      issueUrl: args['issue-url'] || '',
+    }))
     return
   }
   if (command === 'parse') {
@@ -44,7 +56,7 @@ function main() {
     writeFile(args.output, `${JSON.stringify(selection, null, 2)}\n`)
     return
   }
-  throw new Error('Commands: render --report <json> --output <md> [--run-url <url>] | parse --body <md> [--comment <md>] --output <json>')
+  throw new Error('Commands: render|render-notification --report <json> --output <md> [--run-url <url>] [--issue-url <url>] | parse --body <md> [--comment <md>] --output <json>')
 }
 
 try {

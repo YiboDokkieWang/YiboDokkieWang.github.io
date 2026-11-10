@@ -29,33 +29,55 @@ function escapeMarkdown(value = '') {
   return String(value).replace(/[\r\n]+/g, ' ').replaceAll('|', '\\|').trim()
 }
 
+function formatCheckedAt(value = '') {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value || '未知'
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date).replaceAll('/', '-').replace(' ', ' ')
+}
+
+function patentCoverageNotice(report = {}, compact = false) {
+  if (report.patentCoverage?.status === 'cached') {
+    const text = `⚠️ 专利实时检索失败，本次使用 ${report.patentCoverage.cacheSavedAt || '未知时间'} 保存的缓存（${report.patentCoverage.cacheCount || 0} 条候选）。`
+    return compact ? text : `> ${text}`
+  }
+  if (report.patentCoverage?.status === 'incomplete') {
+    const text = '⚠️ 本次专利扫描未完成：Google Patents和EPO OPS均未成功返回数据，且没有可用缓存。因此，本次候选不能据此判断没有新专利。'
+    return compact ? text : `> **${text}**`
+  }
+  return '✅ 论文和专利数据源扫描正常。'
+}
+
 function renderApprovalIssue(report = {}, options = {}) {
   const items = actionableItems(report)
   const lines = [
     '# 请选择属于你的新增成果',
     '',
-    '@YiboDokkieWang，扫描已完成。你可以使用下面任意一种确认方式：',
+    '这是本次扫描的正式确认页面。请只勾选确实属于你的成果。',
     '',
-    '1. **直接回复通知邮件**：只回复一行，例如 `确认：1,2,5`。',
-    '2. **在 GitHub 网页勾选**：勾选确实属于你的成果，最后再勾选页面底部的“确认选择并更新网站”。',
-    '',
-    '> 邮件正文中的复选框不会响应点击，这是 GitHub 邮件的限制。只有仓库所有者的邮件回复或 GitHub 勾选操作能够触发网站更新；未选择的成果不会写入网站。',
-    '',
-    `- 扫描时间：${report.checkedAt || ''}`,
-    `- 待确认数量：${items.length}`,
   ]
-  if (options.runUrl) lines.push(`- [查看本次扫描运行记录](${options.runUrl})`)
-  if (report.patentCoverage?.status === 'cached') {
-    lines.push(
-      '',
-      `> ⚠️ **专利实时检索失败，本次使用缓存。** 缓存时间：${report.patentCoverage.cacheSavedAt || '未知'}；缓存候选：${report.patentCoverage.cacheCount || 0} 条。`,
-    )
-  } else if (report.patentCoverage?.status === 'incomplete') {
-    lines.push(
-      '',
-      '> ⚠️ **本次专利扫描未完成。** Google Patents和EPO OPS均未成功返回数据，且没有可用缓存。邮件中的候选只代表本次成功检索到的论文，不能据此判断没有新专利。',
-    )
+  if (options.issueUrl) {
+    lines.push(`> 📌 **[打开或重新载入本次确认页面](${options.issueUrl})**`, '')
   }
+  lines.push(
+    '## 操作方法',
+    '',
+    '1. 勾选下面属于你的成果。',
+    '2. 检查无误后，再勾选页面底部的“确认以上选择并自动更新个人网站”。',
+    '3. GitHub 将只添加你勾选的内容，随后自动关闭本确认页面。',
+    '',
+    `- **扫描时间：** ${formatCheckedAt(report.checkedAt)}（北京时间）`,
+    `- **待确认数量：** ${items.length}`,
+    `- **扫描状态：** ${patentCoverageNotice(report, true)}`,
+  )
+  if (options.runUrl) lines.push(`- [查看本次扫描运行记录](${options.runUrl})`)
   lines.push('', '## 待确认成果', '')
   items.forEach((item, index) => {
     const identifier = publicationIdentifier(item)
@@ -71,8 +93,62 @@ function renderApprovalIssue(report = {}, options = {}) {
     '',
     '- [ ] <!-- publication-confirm --> **确认以上选择并自动更新个人网站**',
     '',
-    '> 请最后勾选本项。勾选后，GitHub 将只添加上面已勾选的成果，并自动关闭本确认页。',
+    '> 这相当于“提交”按钮。请先选择成果，最后再勾选本项。若没有任何成果属于你，可以不选上面的项目，直接勾选本项以关闭本次确认。',
   )
+  return `${lines.join('\n')}\n`
+}
+
+function renderApprovalNotification(report = {}, options = {}) {
+  const items = actionableItems(report)
+  const issueUrl = options.issueUrl || ''
+  const lines = [
+    '# 新增成果等待你的确认',
+    '',
+    '@YiboDokkieWang，本次自动扫描发现了可能属于你的新增成果。网站目前**尚未修改**，只有经过你的确认才会更新。',
+    '',
+    '## 推荐：打开确认页面勾选',
+    '',
+    issueUrl
+      ? `### 👉 [打开本次成果确认页面（共 ${items.length} 项）](${issueUrl})`
+      : `### 本次共有 ${items.length} 项成果等待确认`,
+    '',
+    '进入页面后，勾选属于你的成果，再勾选页面底部的“确认以上选择并自动更新个人网站”。',
+    '',
+    '## 网络不稳定时：直接回复本邮件',
+    '',
+    '- 选择部分成果：只回复一行，例如 `确认：1,2,5`',
+    '- 全部属于你：回复 `确认：全部`',
+    '- 都不属于你：回复 `确认：无`',
+    '',
+    '> 邮件里的候选列表只用于查看，不能直接点击勾选。这是 GitHub 通知邮件的限制；请使用上面的确认页面，或直接回复编号。',
+    '',
+    '## 本次候选',
+    '',
+  ]
+  items.forEach((item, index) => {
+    const identifier = publicationIdentifier(item)
+    const title = escapeMarkdown(item.notificationTitle || item.title || identifier)
+    const link = sourceLink(item)
+    const linkedTitle = link ? `[${title}](${link})` : title
+    lines.push(`${index + 1}. **${localizedType(item.type)} · ${item.year || '年份未知'} · ${localizedStatus(item.status)}**`)
+    lines.push(`   - **题目：** ${linkedTitle}`)
+    const authors = Array.isArray(item.authors) ? item.authors.filter(Boolean).join('、') : ''
+    const creatorLabel = item.type === 'patent' ? '发明人' : '作者'
+    if (authors) lines.push(`   - **${creatorLabel}：** ${escapeMarkdown(authors)}`)
+    if (item.doi) lines.push(`   - **DOI：** ${escapeMarkdown(item.doi)}`)
+    else if (item.patentNumber) lines.push(`   - **专利号：** ${escapeMarkdown(item.patentNumber)}`)
+    lines.push('')
+  })
+  lines.push(
+    '',
+    '## 扫描信息',
+    '',
+    `- **时间：** ${formatCheckedAt(report.checkedAt)}（北京时间）`,
+    `- **待确认：** ${items.length} 项`,
+    `- **数据状态：** ${patentCoverageNotice(report, true)}`,
+  )
+  if (options.runUrl) lines.push(`- [查看详细扫描记录](${options.runUrl})`)
+  lines.push('', '未选择的成果不会写入网站。')
   return `${lines.join('\n')}\n`
 }
 
@@ -90,11 +166,17 @@ function allCandidateIdentifiers(body = '') {
 }
 
 function parseApprovalEmailReply(issueBody = '', commentBody = '') {
-  const command = String(commentBody).match(/^\s*确认\s*[:：]\s*([0-9０-９,，、\s]+)\s*$/mi)
+  const command = String(commentBody).match(/^\s*确认\s*[:：]\s*([0-9０-９,，、\s]+|全部|无)\s*$/mi)
   if (!command) return { confirmed: false, selectedIdentifiers: [], invalidSelections: [] }
+  const candidates = allCandidateIdentifiers(issueBody)
+  if (command[1].trim() === '全部') {
+    return { confirmed: true, selectedIdentifiers: candidates, invalidSelections: [] }
+  }
+  if (command[1].trim() === '无') {
+    return { confirmed: true, selectedIdentifiers: [], invalidSelections: [] }
+  }
   const normalized = command[1].replace(/[０-９]/g, character => String(character.charCodeAt(0) - 0xFEE0))
   const numbers = [...new Set((normalized.match(/\d+/g) || []).map(Number))]
-  const candidates = allCandidateIdentifiers(issueBody)
   const invalidSelections = numbers.filter(number => number < 1 || number > candidates.length)
   const selectedIdentifiers = numbers
     .filter(number => number >= 1 && number <= candidates.length)
@@ -128,4 +210,5 @@ module.exports = {
   parseApprovalEmailReply,
   publicationIdentifier,
   renderApprovalIssue,
+  renderApprovalNotification,
 }

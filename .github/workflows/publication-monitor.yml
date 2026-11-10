@@ -140,11 +140,22 @@ jobs:
           issue_url=$(gh issue create \
             --title "发表成果待确认：请选择本次新增成果" \
             --body-file publication-monitor/output/approval.md \
-            --label publication-review \
-            --assignee YiboDokkieWang)
-          echo "## 请在登录 GitHub 后勾选成果" >> "$GITHUB_STEP_SUMMARY"
+            --label publication-review)
+          node publication-monitor/approval-cli.cjs render \
+            --report publication-monitor/output/report.json \
+            --output publication-monitor/output/approval.md \
+            --run-url "$run_url" \
+            --issue-url "$issue_url"
+          gh issue edit "$issue_url" --body-file publication-monitor/output/approval.md
+          node publication-monitor/approval-cli.cjs render-notification \
+            --report publication-monitor/output/report.json \
+            --output publication-monitor/output/notification.md \
+            --run-url "$run_url" \
+            --issue-url "$issue_url"
+          gh issue comment "$issue_url" --body-file publication-monitor/output/notification.md
+          echo "## 请确认新增成果" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "${issue_url}" >> "$GITHUB_STEP_SUMMARY"
+          echo "[打开本次成果确认页面](${issue_url})" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create publication update pull request
         if: steps.monitor.outputs.changed_publications == 'true'

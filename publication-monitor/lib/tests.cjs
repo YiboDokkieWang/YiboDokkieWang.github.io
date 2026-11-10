@@ -14,7 +14,7 @@ const {
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
 const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults } = require('./patents.cjs')
-const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue } = require('./approval.cjs')
+const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue, renderApprovalNotification } = require('./approval.cjs')
 const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
 function runSelfTests() {
@@ -231,6 +231,35 @@ function runSelfTests() {
       selectedIdentifiers: ['patent:CN456B'],
       invalidSelections: [9],
     })
+    assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：全部'), {
+      confirmed: true,
+      selectedIdentifiers: ['doi:10.1000/first', 'patent:CN456B', 'doi:10.1000/third'],
+      invalidSelections: [],
+    })
+    assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：无'), {
+      confirmed: true,
+      selectedIdentifiers: [],
+      invalidSelections: [],
+    })
+  })
+
+  test('通知邮件包含醒目的本次确认页直达链接', () => {
+    const notification = renderApprovalNotification({
+      checkedAt: '2026-11-10T01:35:29.737Z',
+      items: [
+        { status: 'new', type: 'journal', year: 2026, title: 'First paper', doi: '10.1000/first' },
+        { status: 'new', type: 'patent', year: 2026, notificationTitle: '一种中文专利', patentNumber: 'CN456B' },
+      ],
+      patentCoverage: { status: 'complete' },
+    }, {
+      issueUrl: 'https://github.com/YiboDokkieWang/YiboDokkieWang.github.io/issues/99',
+      runUrl: 'https://github.com/YiboDokkieWang/YiboDokkieWang.github.io/actions/runs/123',
+    })
+    assert(notification.includes('打开本次成果确认页面（共 2 项）'))
+    assert(notification.includes('issues/99'))
+    assert(notification.includes('确认：全部'))
+    assert(notification.includes('确认：无'))
+    assert(!notification.includes('- [ ]'))
   })
 
   test('最近一次成功的专利扫描可以写入并读取缓存', () => {
