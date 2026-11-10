@@ -19,6 +19,9 @@
 
 - ORCID 中的专利记录会与论文一起读取。
 - 默认使用无需密钥的 Google Patents 公开检索按中文发明人姓名导出候选专利，同时覆盖公开/实审阶段的 `A` 类申请和 `B/C/U` 类授权版本。
+- Google Patents 返回 `429` 或临时服务器错误时会按照 `Retry-After` 响应头或递增间隔延迟重试。
+- 每次实时专利检索成功后，会把通过姓名和研究方向筛选的结果保存到 `publication-monitor/cache/patents.json`。临时限流时使用最近一次成功缓存，并在报告中明确标记缓存时间。
+- 如果 Google Patents、EPO OPS 和缓存都不可用，报告与邮件会突出显示“本次专利扫描未完成”，不会把零候选误写成“没有新专利”。
 - 配置 EPO OPS 后，系统还会通过正式接口按发明人/申请人姓名检索，并与公开检索结果合并。
 - 候选专利必须先匹配 `Yibo Wang / Wang Yibo / 王艺博` 等姓名，再根据题目、摘要、IPC/CPC 分类、已知合作者和单位判断是否属于电力电子、光伏、储能、电池、微电网、电能质量等研究方向。
 - 无关领域的同名专利会静默过滤，不会进入网站更新 Pull Request；同族专利优先保留授权版本和中国版本。
@@ -59,6 +62,15 @@ node publication-monitor/local-server.cjs
 - `NOTIFICATION_EMAIL`
 
 `EPO_OPS_KEY` 和 `EPO_OPS_SECRET` 需要在 EPO Developer Portal 创建应用后，添加到仓库的 `Settings > Secrets and variables > Actions`。密钥未配置时会跳过 EPO 独立专利检索，但 DOI、Crossref、ORCID、BibTeX 和测试数据仍可使用。
+
+EPO OPS配置步骤：
+
+1. 在 `https://developers.epo.org` 注册免费的 Non-paying 开发者账户并完成邮件确认。
+2. 登录后进入 `My Apps`，点击 `Add a new App` 创建应用。
+3. 复制应用的 `Consumer Key` 和 `Consumer Secret`。
+4. 在GitHub仓库进入 `Settings > Secrets and variables > Actions > New repository secret`，分别创建 `EPO_OPS_KEY` 和 `EPO_OPS_SECRET`。
+
+密钥只保存在GitHub Secrets中，不要写入代码、Issue、邮件或本地公开配置文件。
 
 ## 命令行测试
 

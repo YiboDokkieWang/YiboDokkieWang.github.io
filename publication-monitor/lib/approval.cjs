@@ -45,6 +45,17 @@ function renderApprovalIssue(report = {}, options = {}) {
     `- 待确认数量：${items.length}`,
   ]
   if (options.runUrl) lines.push(`- [查看本次扫描运行记录](${options.runUrl})`)
+  if (report.patentCoverage?.status === 'cached') {
+    lines.push(
+      '',
+      `> ⚠️ **专利实时检索失败，本次使用缓存。** 缓存时间：${report.patentCoverage.cacheSavedAt || '未知'}；缓存候选：${report.patentCoverage.cacheCount || 0} 条。`,
+    )
+  } else if (report.patentCoverage?.status === 'incomplete') {
+    lines.push(
+      '',
+      '> ⚠️ **本次专利扫描未完成。** Google Patents和EPO OPS均未成功返回数据，且没有可用缓存。邮件中的候选只代表本次成功检索到的论文，不能据此判断没有新专利。',
+    )
+  }
   lines.push('', '## 待确认成果', '')
   items.forEach((item, index) => {
     const identifier = publicationIdentifier(item)

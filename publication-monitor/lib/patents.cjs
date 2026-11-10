@@ -362,7 +362,17 @@ async function fetchWithTimeout(url, options = {}) {
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
     const response = await fetch(url, { ...options, signal: controller.signal })
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+    if (!response.ok) {
+      const error = new Error(`${response.status} ${response.statusText}`)
+      error.status = response.status
+      const retryAfter = response.headers.get('retry-after')
+      if (retryAfter) {
+        const seconds = Number(retryAfter)
+        const dateDelay = Date.parse(retryAfter) - Date.now()
+        error.retryAfterMs = Number.isFinite(seconds) ? seconds * 1000 : Math.max(0, dateDelay || 0)
+      }
+      throw error
+    }
     return response
   } finally {
     clearTimeout(timeout)
@@ -413,10 +423,13 @@ function googlePatentSearchUrl(alias) {
 }
 
 async function fetchGooglePatentCsv(alias) {
-  const delays = [0, 2500, 6000]
+  const fallbackDelays = [0, 10000, 30000, 60000]
   let lastError
-  for (let attempt = 0; attempt < delays.length; attempt++) {
-    if (delays[attempt]) await new Promise(resolve => setTimeout(resolve, delays[attempt]))
+  for (let attempt = 0; attempt < fallbackDelays.length; attempt++) {
+    const delay = attempt === 0
+      ? 0
+      : Math.min(120000, Math.max(fallbackDelays[attempt], Number(lastError?.retryAfterMs) || 0))
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay))
     try {
       const response = await fetchWithTimeout(googlePatentSearchUrl(alias), {
         headers: {
@@ -428,7 +441,7 @@ async function fetchGooglePatentCsv(alias) {
       return response.text()
     } catch (error) {
       lastError = error
-      if (!/^(429|5\d\d)\b/.test(error.message)) break
+      if (![429, 500, 502, 503, 504].includes(error.status) && !/^(429|5\d\d)\b/.test(error.message)) break
     }
   }
   throw lastError

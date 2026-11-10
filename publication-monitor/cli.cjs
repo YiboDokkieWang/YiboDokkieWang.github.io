@@ -124,6 +124,21 @@ function markdownReport(report) {
       `- 忽略无关同名专利：${report.patentFilter.ignored || 0}`,
     )
   }
+  if (report.patentCoverage?.status === 'cached') {
+    lines.push(
+      '',
+      '## ⚠️ 专利扫描使用缓存',
+      '',
+      `Google Patents实时检索失败，本次使用${report.patentCoverage.cacheSavedAt || '最近一次'}保存的 ${report.patentCoverage.cacheCount || 0} 条专利候选。论文扫描不受影响。`,
+    )
+  } else if (report.patentCoverage?.status === 'incomplete') {
+    lines.push(
+      '',
+      '## ⚠️ 本次专利扫描未完成',
+      '',
+      'Google Patents实时检索失败，EPO OPS也未成功返回数据，并且当前没有可用缓存。下面的结果不能用于判断“没有新专利”，请稍后重新运行扫描。论文扫描不受影响。',
+    )
+  }
   if (report.items?.length) {
     lines.push('', '## 扫描结果', '', '| 状态 | 类型 | 年份 | 原始语言题目 | 标识符 |', '|---|---|---:|---|---|')
     report.items.forEach(item => lines.push(`| ${localizedStatus(item.status)} | ${localizedType(item.type)} | ${item.year || ''} | ${String(item.notificationTitle || item.title || '').replaceAll('|', '\\|')} | ${item.doi || item.patentNumber || item.ieeeDocumentId || ''} |`))
@@ -182,6 +197,7 @@ async function commandScan(args) {
     counts,
     sourceStatus: scan.sourceStatus,
     patentFilter: scan.patentFilter,
+    patentCoverage: scan.patentCoverage,
     items: plans.map(plan => ({
       status: plan.comparison.status,
       type: plan.record.type,

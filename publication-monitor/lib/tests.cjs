@@ -1,5 +1,7 @@
 const assert = require('assert')
 const fs = require('fs')
+const os = require('os')
+const path = require('path')
 const {
   EN_PUBLICATIONS,
   buildEntry,
@@ -13,6 +15,7 @@ const {
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
 const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults } = require('./patents.cjs')
 const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue } = require('./approval.cjs')
+const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
 function runSelfTests() {
   const results = []
@@ -228,6 +231,28 @@ function runSelfTests() {
       selectedIdentifiers: ['patent:CN456B'],
       invalidSelections: [9],
     })
+  })
+
+  test('最近一次成功的专利扫描可以写入并读取缓存', () => {
+    const filePath = path.join(os.tmpdir(), `publication-monitor-patent-cache-${process.pid}.json`)
+    const records = [{ type: 'patent', title: 'Cached patent', patentNumber: 'CN123B' }]
+    savePatentCache(records, filePath, '2026-11-10T00:00:00.000Z')
+    assert.deepStrictEqual(loadPatentCache(filePath), {
+      schemaVersion: 1,
+      savedAt: '2026-11-10T00:00:00.000Z',
+      records,
+    })
+    fs.unlinkSync(filePath)
+  })
+
+  test('专利数据源全部失败时确认邮件显示未完成警告', () => {
+    const issue = renderApprovalIssue({
+      checkedAt: '2026-11-10T00:00:00.000Z',
+      items: [{ status: 'new', type: 'journal', title: 'Paper', year: 2026, doi: '10.1000/paper' }],
+      patentCoverage: { status: 'incomplete', cacheCount: 0 },
+    })
+    assert(issue.includes('本次专利扫描未完成'))
+    assert(issue.includes('不能据此判断没有新专利'))
   })
 
   test('专利公开版本可被授权版本替换', () => {

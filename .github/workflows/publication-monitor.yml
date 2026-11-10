@@ -164,17 +164,18 @@ jobs:
             --body-file publication-monitor/output/report.md \
             --reviewer YiboDokkieWang
 
-      - name: Save monthly monitor state
-        if: github.event_name == 'schedule' && steps.monitor.outputs.changed_publications != 'true'
+      - name: Save scan state and patent cache
+        if: steps.monitor.outputs.operation == 'scan'
         shell: bash
         run: |
-          if git diff --quiet -- publication-monitor/state.json; then
+          if git diff --quiet -- publication-monitor/state.json publication-monitor/cache/patents.json; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add publication-monitor/state.json
-          git commit -m "Record monthly publication check"
+          git add publication-monitor/state.json publication-monitor/cache/patents.json
+          git commit -m "Record publication scan state"
+          git pull --rebase origin main
           git push origin main
 
       - name: Notify manual run with a report issue

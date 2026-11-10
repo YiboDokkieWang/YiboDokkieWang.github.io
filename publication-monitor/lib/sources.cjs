@@ -1,5 +1,6 @@
 const { cleanDoi, loadConfig, normalizeTitle, titleSimilarity } = require('./core.cjs')
-const { enrichGooglePatentChinese, filterRelevantPatents, searchEpoPatentsByNames, searchGooglePatentsByInventors } = require('./patents.cjs')
+const { deduplicatePatentFamilies, enrichGooglePatentChinese, filterRelevantPatents, searchEpoPatentsByNames, searchGooglePatentsByInventors } = require('./patents.cjs')
+const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
 const REQUEST_TIMEOUT_MS = 15000
 
@@ -522,6 +523,10 @@ async function scanConfiguredSources() {
   const config = loadConfig()
   const all = []
   const sourceStatus = []
+  let googleLiveSucceeded = false
+  let epoLiveSucceeded = false
+  let cachedPatentRecords = []
+  let patentCacheSavedAt = null
   if (config.orcidId) {
     for (const [name, loader] of [
       ['Crossref ORCID', () => listCrossrefByOrcid(config.orcidId)],
@@ -559,15 +564,32 @@ async function scanConfiguredSources() {
           },
         )
         all.push(...records)
+        googleLiveSucceeded = true
         sourceStatus.push({ source: 'Google Patents public search', ok: true, count: records.length })
       } catch (error) {
         sourceStatus.push({ source: 'Google Patents public search', ok: false, count: 0, error: error.message })
+        const cache = loadPatentCache()
+        cachedPatentRecords = cache.records.map(record => ({
+          ...record,
+          source: 'Google Patents cached fallback',
+          cachedSource: record.source || 'Google Patents public search',
+          cachedAt: cache.savedAt,
+        }))
+        patentCacheSavedAt = cache.savedAt
+        sourceStatus.push({
+          source: 'Patent cache fallback',
+          ok: cachedPatentRecords.length > 0,
+          count: cachedPatentRecords.length,
+          skipped: cachedPatentRecords.length === 0,
+          message: cachedPatentRecords.length ? `使用${cache.savedAt || '未知时间'}的最近成功结果` : '尚无可用的成功扫描缓存',
+        })
       }
     }
     if (process.env.EPO_OPS_KEY && process.env.EPO_OPS_SECRET) {
       try {
         const records = await searchEpoPatentsByNames(config.patentSearch.nameAliases || config.authorNames)
         all.push(...records)
+        epoLiveSucceeded = true
         sourceStatus.push({ source: 'EPO OPS patents', ok: true, count: records.length })
       } catch (error) {
         sourceStatus.push({ source: 'EPO OPS patents', ok: false, count: 0, error: error.message })
@@ -578,6 +600,13 @@ async function scanConfiguredSources() {
   }
   const patentCandidates = all.filter(record => record.type === 'patent')
   const patentFilter = filterRelevantPatents(patentCandidates, config.patentSearch || {})
+  if (cachedPatentRecords.length) {
+    patentFilter.relevant = deduplicatePatentFamilies(
+      [...patentFilter.relevant, ...cachedPatentRecords],
+      config.patentSearch?.countryPriority,
+    )
+    patentFilter.examined += cachedPatentRecords.length
+  }
   let localizedChinesePatents = 0
   for (let index = 0; index < patentFilter.relevant.length; index++) {
     const record = patentFilter.relevant[index]
@@ -586,6 +615,13 @@ async function scanConfiguredSources() {
       patentFilter.relevant[index] = await enrichGooglePatentChinese(record)
       if (patentFilter.relevant[index].titleZh) localizedChinesePatents++
     } catch {}
+  }
+  if (googleLiveSucceeded) {
+    const googleRecords = patentFilter.relevant.filter(record => record.source === 'Google Patents public search')
+    if (googleRecords.length) {
+      const cache = savePatentCache(googleRecords)
+      patentCacheSavedAt = cache.savedAt
+    }
   }
   sourceStatus.push({
     source: 'Patent identity and research filter',
@@ -615,6 +651,14 @@ async function scanConfiguredSources() {
       examined: patentFilter.examined,
       relevant: patentFilter.relevant.length,
       ignored: patentFilter.ignored.length,
+    },
+    patentCoverage: {
+      status: googleLiveSucceeded || epoLiveSucceeded ? 'complete' : cachedPatentRecords.length ? 'cached' : 'incomplete',
+      googleLiveSucceeded,
+      epoLiveSucceeded,
+      cacheUsed: cachedPatentRecords.length > 0,
+      cacheCount: cachedPatentRecords.length,
+      cacheSavedAt: patentCacheSavedAt,
     },
   }
 }
