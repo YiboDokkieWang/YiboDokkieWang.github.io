@@ -4,23 +4,20 @@ on:
   schedule:
     - cron: '17 9 1 * *'
       timezone: 'Asia/Shanghai'
+  issues:
+    types: [edited]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       operation:
         description: '操作方式'
         required: true
         type: choice
-        default: inventory
+        default: scan
         options:
-          - inventory
           - scan
-          - scan-with-known-patent
           - add
-          - self-test
-          - simulate-new-journal
-          - simulate-new-conference
-          - simulate-new-patent
-          - simulate-early-access-upgrade
       result_type:
         description: '成果类型'
         required: true
@@ -59,7 +56,7 @@ concurrency:
 
 jobs:
   publication-monitor:
-    if: github.event_name == 'schedule' || github.actor == 'YiboDokkieWang'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.actor == 'YiboDokkieWang')
     runs-on: ubuntu-latest
     env:
       IEEE_API_KEY: ${{ secrets.IEEE_API_KEY }}
@@ -85,33 +82,11 @@ jobs:
           mkdir -p publication-monitor/output
           operation="${{ github.event_name == 'schedule' && 'scan' || inputs.operation }}"
           case "$operation" in
-            self-test)
-              node publication-monitor/cli.cjs self-test --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
-              ;;
-            inventory)
-              node publication-monitor/cli.cjs inventory --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
-              ;;
             scan)
               node publication-monitor/cli.cjs scan --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
-            scan-with-known-patent)
-              node publication-monitor/cli.cjs scan --verify-known-patent --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
-              operation="scan"
-              ;;
             add)
               node publication-monitor/cli.cjs identify --apply --type "${{ inputs.result_type }}" --input-kind "${{ inputs.input_kind }}" --value "$MANUAL_INPUT_VALUE" --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
-              ;;
-            simulate-new-journal)
-              node publication-monitor/cli.cjs fixture --name new-journal --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
-              ;;
-            simulate-new-conference)
-              node publication-monitor/cli.cjs fixture --name new-conference --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
-              ;;
-            simulate-new-patent)
-              node publication-monitor/cli.cjs fixture --name new-patent --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
-              ;;
-            simulate-early-access-upgrade)
-              node publication-monitor/cli.cjs fixture --name early-access-final --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
             *)
               echo "Unknown operation: $operation" >&2
@@ -214,3 +189,88 @@ jobs:
               --assignee YiboDokkieWang | awk -F/ '{print $NF}')
           fi
           gh issue comment "$issue" --body-file publication-monitor/output/report.md
+
+  apply-owner-selection:
+    if: (github.event_name == 'issues' || github.event_name == 'issue_comment') && github.actor == 'YiboDokkieWang' && contains(github.event.issue.labels.*.name, 'publication-review')
+    runs-on: ubuntu-latest
+    env:
+      IEEE_API_KEY: ${{ secrets.IEEE_API_KEY }}
+      SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read owner selection
+        id: selection
+        shell: bash
+        run: |
+          mkdir -p publication-monitor/output
+          node -e "const fs=require('fs'); const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')); fs.writeFileSync('publication-monitor/output/issue-body.md', event.issue.body || ''); fs.writeFileSync('publication-monitor/output/comment-body.md', event.comment?.body || '')"
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            node publication-monitor/approval-cli.cjs parse \
+              --body publication-monitor/output/issue-body.md \
+              --comment publication-monitor/output/comment-body.md \
+              --output publication-monitor/output/selection.json
+          else
+            node publication-monitor/approval-cli.cjs parse \
+              --body publication-monitor/output/issue-body.md \
+              --output publication-monitor/output/selection.json
+          fi
+          confirmed=$(node -e "const s=require('./publication-monitor/output/selection.json'); process.stdout.write(String(Boolean(s.confirmed)))")
+          count=$(node -e "const s=require('./publication-monitor/output/selection.json'); process.stdout.write(String(s.selectedIdentifiers.length))")
+          invalid=$(node -e "const s=require('./publication-monitor/output/selection.json'); process.stdout.write(String((s.invalidSelections || []).length))")
+          echo "confirmed=$confirmed" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "invalid=$invalid" >> "$GITHUB_OUTPUT"
+
+      - name: Explain invalid email selection
+        if: steps.selection.outputs.invalid != '0'
+        shell: bash
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --body "邮件回复中包含不存在的编号。请只回复一行，例如：\`确认：1,2,5\`。"
+
+      - name: Record empty confirmation
+        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count == '0' && steps.selection.outputs.invalid == '0'
+        shell: bash
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --body "你没有勾选任何成果，本次不会修改网站。确认页现已关闭。"
+          gh issue close "${{ github.event.issue.number }}"
+
+      - name: Apply selected publications
+        id: apply
+        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count != '0' && steps.selection.outputs.invalid == '0'
+        shell: bash
+        run: |
+          node publication-monitor/cli.cjs scan \
+            --apply \
+            --selected-file publication-monitor/output/selection.json \
+            --output publication-monitor/output/report.json \
+            --markdown-output publication-monitor/output/report.md
+          changed=$(node -e "const r=require('./publication-monitor/output/report.json'); process.stdout.write(String(Boolean(r.changedPublications)))")
+          if [ "$changed" != "true" ]; then
+            echo "The selected publications did not produce a website change." >&2
+            exit 1
+          fi
+
+      - name: Publish selected publications
+        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count != '0' && steps.selection.outputs.invalid == '0'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add contents/publications.md contents/zh/publications.md publication-monitor/state.json
+          git commit -m "Add owner-approved publications"
+          git push origin main
+          commit_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/$(git rev-parse HEAD)"
+          gh issue comment "${{ github.event.issue.number }}" --body "已按你的勾选结果更新个人网站：${commit_url}。GitHub Pages 将自动发布新版本。"
+          gh issue close "${{ github.event.issue.number }}"
+
+      - name: Report approval failure
+        if: failure() && steps.selection.outputs.confirmed == 'true'
+        shell: bash
+        run: |
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          gh issue comment "${{ github.event.issue.number }}" --body "自动更新没有完成，请查看运行记录：${run_url}。确认页保持打开；修复问题后可以取消并重新勾选最终确认项。"
