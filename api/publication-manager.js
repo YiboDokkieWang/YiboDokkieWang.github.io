@@ -4,6 +4,7 @@ const {
   planRecord,
 } = require('../publication-monitor/lib/core.cjs')
 const { identify } = require('../publication-monitor/lib/sources.cjs')
+const { localizePatentRecord } = require('../publication-monitor/lib/patents.cjs')
 
 const REPOSITORY = 'YiboDokkieWang/YiboDokkieWang.github.io'
 const ALLOWED_FIELDS = [
@@ -13,6 +14,7 @@ const ALLOWED_FIELDS = [
   'filingDate', 'publicationDate', 'status', 'legalStatus',
   'source', 'ieeeDocumentId', 'semanticScholarId',
   'inventors', 'applicants', 'familyKey',
+  'translationSource',
   'matchScore', 'matchBreakdown', 'sourceScore',
 ]
 
@@ -85,23 +87,24 @@ module.exports = async function handler(request, response) {
     }
     if (request.method === 'POST' && action === 'identify') {
       const result = await identify(bodyOf(request))
+      const record = await localizePatentRecord(result.record)
       return send(response, 200, {
         ok: true,
-        plan: planRecord(result.record),
+        plan: planRecord(record),
         candidates: (result.candidates || []).map(safeRecord),
         analysis: result.analysis || null,
         warning: result.warning || '',
       })
     }
     if (request.method === 'POST' && action === 'plan') {
-      const record = safeRecord(bodyOf(request).record)
+      const record = await localizePatentRecord(safeRecord(bodyOf(request).record))
       validateRecord(record)
       return send(response, 200, { ok: true, plan: planRecord(record) })
     }
     if (request.method === 'POST' && action === 'apply') {
       const body = bodyOf(request)
       if (body.confirmation !== 'CONFIRM') throw new Error('请输入 CONFIRM 后再提交')
-      const record = safeRecord(body.record)
+      const record = await localizePatentRecord(safeRecord(body.record))
       validateRecord(record)
       const plan = planRecord(record)
       if (!['new', 'upgrade'].includes(plan.comparison.status)) {

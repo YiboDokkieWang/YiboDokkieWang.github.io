@@ -21,6 +21,7 @@ const {
   parseGooglePatentCsv,
   parseGooglePatentHtml,
   parseGooglePatentResults,
+  romanizeChineseName,
   verifiedPatentRecord,
 } = require('./patents.cjs')
 const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue, renderApprovalNotification } = require('./approval.cjs')
@@ -196,6 +197,38 @@ function runSelfTests() {
     assert.strictEqual(records[0].status, 'published')
     assert.strictEqual(records[0].legalStatus, 'published-or-pending')
     assert.deepStrictEqual(records[0].inventors, ['王艺博', '张文起'])
+  })
+
+  test('中文发明人姓名可转换成英文姓名顺序', () => {
+    assert.strictEqual(romanizeChineseName('王艺博'), 'Yibo Wang')
+    assert.strictEqual(romanizeChineseName('张文起'), 'Wenqi Zhang')
+    assert.strictEqual(romanizeChineseName('欧阳元兵'), 'Yuanbing Ouyang')
+  })
+
+  test('未授权专利在中英文条目中显示实审状态', () => {
+    const record = {
+      type: 'patent',
+      title: 'An active balancing topology of ring lithium battery and its active balancing method',
+      titleEn: 'An active balancing topology of ring lithium battery and its active balancing method',
+      titleZh: '一种环式锂电池主动均衡拓扑及其主动均衡方法',
+      authors: ['Yibo Wang', 'Wenqi Zhang'],
+      authorsEn: ['Yibo Wang', 'Wenqi Zhang'],
+      authorsZh: ['王艺博', '张文起'],
+      patentNumber: 'CN117458638A',
+      date: '2024-01-26',
+      status: 'published',
+    }
+    const english = buildEntry(record, 'en')
+    const chinese = buildEntry(record, 'zh')
+    assert(english.includes('Yibo Wang'))
+    assert(english.includes('Wenqi Zhang'))
+    assert(english.includes('An active balancing topology'))
+    assert(english.includes('(Under Substantive Examination)'))
+    assert(!english.includes('王艺博'))
+    assert(chinese.includes('王艺博'))
+    assert(chinese.includes('一种环式锂电池'))
+    assert(chinese.includes('(实审)'))
+    assert(!chinese.includes('Yibo Wang'))
   })
 
   test('Google Patents单次CSV导出可读取完整发明人字段', () => {

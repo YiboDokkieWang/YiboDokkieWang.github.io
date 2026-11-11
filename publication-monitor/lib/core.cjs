@@ -258,9 +258,12 @@ function buildEntry(record, language = 'en') {
   if (record.type === 'patent') {
     const number = record.patentNumber || '【专利号】'
     const date = language === 'zh' ? record.date : englishDate(record.date)
+    const examination = record.status === 'granted'
+      ? ''
+      : (language === 'zh' ? '(实审)' : ' (Under Substantive Examination)')
     const link = record.url ? ` [[${language === 'zh' ? '专利' : 'Patent'}]](${record.url})` : ''
-    if (language === 'zh') return `1. ${authors}. ${title}. 中国专利, ${number}, ${date}.${link}`
-    return `1. ${authors}, "${title}," Chinese Patent ${number}, ${date}.${link}`
+    if (language === 'zh') return `1. ${authors}. ${title}. 中国专利, ${number}${examination}, ${date}.${link}`
+    return `1. ${authors}, "${title}," Chinese Patent ${number}${examination}, ${date}.${link}`
   }
 
   const venue = record.venue || '【Venue】'

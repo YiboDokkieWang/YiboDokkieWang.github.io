@@ -1,5 +1,7 @@
 const crypto = require('crypto')
+const { pinyin } = require('pinyin-pro')
 const { normalizeTitle } = require('./core.cjs')
+const PATENT_TRANSLATION_CACHE = require('../config.json').patentSearch?.translationCache || {}
 
 const REQUEST_TIMEOUT_MS = 20000
 
@@ -49,6 +51,26 @@ function parseCnipaDate(value = '') {
 
 function splitCnipaParties(value = '') {
   return String(value).split(/[;,；，]/).map(item => item.trim()).filter(Boolean)
+}
+
+const COMPOUND_CHINESE_SURNAMES = new Set([
+  '欧阳', '司马', '上官', '诸葛', '东方', '皇甫', '尉迟', '公孙', '慕容', '司徒', '司空',
+])
+
+function capitalizeRomanization(value = '') {
+  return value ? value[0].toUpperCase() + value.slice(1).toLowerCase() : ''
+}
+
+function romanizeChineseName(value = '') {
+  const name = String(value).trim()
+  if (!/[\u3400-\u9fff]/.test(name)) return name
+  if (name === '王艺博') return 'Yibo Wang'
+  const surnameLength = COMPOUND_CHINESE_SURNAMES.has(name.slice(0, 2)) ? 2 : 1
+  const surnameParts = pinyin(name.slice(0, surnameLength), { toneType: 'none', type: 'array' })
+  const givenParts = pinyin(name.slice(surnameLength), { toneType: 'none', type: 'array' })
+  const surname = capitalizeRomanization(surnameParts.join(''))
+  const given = capitalizeRomanization(givenParts.join(''))
+  return [given, surname].filter(Boolean).join(' ')
 }
 
 function parseCnipaPublicResults(payload = {}) {
@@ -340,10 +362,11 @@ function filterRelevantPatents(records, profile = {}) {
 }
 
 async function fetchWithTimeout(url, options = {}) {
+  const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchOptions } = options
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal })
+    const response = await fetch(url, { ...fetchOptions, signal: controller.signal })
     if (!response.ok) {
       const error = new Error(`${response.status} ${response.statusText}`)
       error.status = response.status
@@ -421,6 +444,88 @@ async function searchCnipaPublicPatents(query, options = {}) {
   let payload = JSON.parse(await response.text())
   if (typeof payload === 'string') payload = JSON.parse(payload)
   return parseCnipaPublicResults(payload)
+}
+
+async function translateChineseText(value = '') {
+  const text = String(value).trim()
+  if (!text || !/[\u3400-\u9fff]/.test(text)) return text
+  const params = new URLSearchParams({ client: 'gtx', sl: 'zh-CN', tl: 'en', dt: 't', q: text })
+  try {
+    const response = await fetchWithTimeout(`https://translate.googleapis.com/translate_a/single?${params.toString()}`, {
+      timeoutMs: 10000,
+      headers: {
+        Accept: 'application/json,text/plain,*/*',
+        'User-Agent': 'Mozilla/5.0 (compatible; YiboDokkieWang-Publication-Manager/1.0)',
+      },
+    })
+    const payload = JSON.parse(await response.text())
+    const translated = (payload?.[0] || []).map(part => part?.[0] || '').join('').trim()
+    if (translated) return translated
+  } catch {
+    // Try the independent backup service below.
+  }
+  const backupParams = new URLSearchParams({ q: text, langpair: 'zh-CN|en' })
+  const backup = await fetchWithTimeout(`https://api.mymemory.translated.net/get?${backupParams.toString()}`, {
+    timeoutMs: 10000,
+    headers: { Accept: 'application/json', 'User-Agent': 'YiboDokkieWang-Publication-Manager/1.0' },
+  })
+  const backupPayload = JSON.parse(await backup.text())
+  return String(backupPayload?.responseData?.translatedText || '').trim()
+}
+
+async function localizePatentRecord(record = {}) {
+  if (record.type !== 'patent') return record
+  const chineseInventors = record.authorsZh?.length
+    ? record.authorsZh
+    : (record.inventors?.length ? record.inventors : record.authors || [])
+  const cached = PATENT_TRANSLATION_CACHE[String(record.patentNumber || '').toUpperCase()] || {}
+  let titleEn = record.titleEn || cached.titleEn || (!/[\u3400-\u9fff]/.test(record.title || '') ? record.title : '')
+  let authorsEn = record.authorsEn?.length ? record.authorsEn : (cached.authorsEn || chineseInventors.map(romanizeChineseName))
+  let translationSource = record.translationSource || (cached.titleEn ? 'Verified local translation cache' : '')
+
+  if (record.patentNumber && (!titleEn || !authorsEn.length)) {
+    try {
+      const response = await fetchWithTimeout(`https://patents.google.com/patent/${encodeURIComponent(record.patentNumber)}/en`, {
+        timeoutMs: 7000,
+        headers: {
+          Accept: 'text/html,*/*;q=0.8',
+          Referer: 'https://patents.google.com/',
+          'User-Agent': 'Mozilla/5.0 (compatible; YiboDokkieWang-Publication-Manager/1.0)',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      })
+      const metadata = parseGooglePatentHtml(await response.text(), 'en')
+      if (metadata.title && !/[\u3400-\u9fff]/.test(metadata.title)) {
+        titleEn = metadata.title
+        translationSource = 'Google Patents English metadata'
+      }
+      if (metadata.inventors.length) authorsEn = metadata.inventors.map(romanizeChineseName)
+    } catch {
+      // Fall through to machine translation while retaining the official Chinese metadata.
+    }
+  }
+
+  if (!titleEn) {
+    try {
+      titleEn = await translateChineseText(record.titleZh || record.title)
+      if (titleEn) translationSource = 'Machine translation'
+    } catch {
+      titleEn = record.titleZh || record.title || ''
+      translationSource = 'Chinese original (English translation unavailable)'
+    }
+  }
+
+  return {
+    ...record,
+    title: titleEn || record.title,
+    titleEn: titleEn || record.title,
+    titleZh: record.titleZh || record.title,
+    authors: authorsEn.length ? authorsEn : record.authors,
+    authorsEn,
+    authorsZh: chineseInventors,
+    inventors: chineseInventors,
+    translationSource,
+  }
 }
 
 async function enrichGooglePatentChinese(record) {
@@ -526,12 +631,14 @@ module.exports = {
   deduplicatePatentFamilies,
   enrichGooglePatentChinese,
   filterRelevantPatents,
+  localizePatentRecord,
   normalizeChineseApplicationNumber,
   parseCnipaPublicResults,
   parseGooglePatentCsv,
   parseGooglePatentHtml,
   parseGooglePatentResults,
   patentRoot,
+  romanizeChineseName,
   searchCnipaPublicPatents,
   searchGooglePatentsByInventors,
   verifyKnownGooglePatent,

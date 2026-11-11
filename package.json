@@ -5,6 +5,9 @@
   "scripts": {
     "build": "node publication-monitor/build-vercel.cjs"
   },
+  "dependencies": {
+    "pinyin-pro": "3.29.5"
+  },
   "engines": {
     "node": ">=22"
   }

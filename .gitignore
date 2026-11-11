@@ -6,4 +6,5 @@ publication-monitor/tmp/
 publication-monitor/report.json
 dist/
 .vercel/
+node_modules/
 
