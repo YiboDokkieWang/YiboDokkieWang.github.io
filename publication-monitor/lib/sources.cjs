@@ -5,7 +5,6 @@ const {
   filterRelevantPatents,
   normalizeChineseApplicationNumber,
   searchCnipaPublicPatents,
-  searchGooglePatentsByInventors,
   verifyKnownGooglePatent,
 } = require('./patents.cjs')
 const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
@@ -566,7 +565,7 @@ async function scanConfiguredSources(options = {}) {
   const config = loadConfig()
   const all = []
   const sourceStatus = []
-  let googleLiveSucceeded = false
+  let cnipaLiveSucceeded = false
   let cachedPatentRecords = []
   let patentCacheSavedAt = null
   let verifiedPatentCount = 0
@@ -599,24 +598,28 @@ async function scanConfiguredSources(options = {}) {
     }
   }
   if (config.patentSearch?.enabled) {
-    if (config.patentSearch.googlePatents?.enabled !== false) {
+    if (config.patentSearch.cnipaPublic?.enabled !== false) {
       try {
-        const records = await searchGooglePatentsByInventors(
-          config.patentSearch.nameAliases || config.authorNames,
-          {
-            aliases: config.patentSearch.googlePatents?.aliases,
-          },
-        )
-        all.push(...records)
-        googleLiveSucceeded = true
-        sourceStatus.push({ source: 'Google Patents public search', ok: true, count: records.length })
+        const cnipaConfig = config.patentSearch.cnipaPublic || {}
+        const aliases = cnipaConfig.aliases?.length ? cnipaConfig.aliases : ['王艺博']
+        const records = []
+        for (const alias of aliases) {
+          records.push(...await searchCnipaPublicPatents(alias, {
+            size: cnipaConfig.pageSize || 100,
+            maxResults: cnipaConfig.maxResults || 1000,
+          }))
+        }
+        const uniqueRecords = [...new Map(records.map(record => [record.patentNumber, record])).values()]
+        all.push(...uniqueRecords)
+        cnipaLiveSucceeded = true
+        sourceStatus.push({ source: 'CNIPA public patent data', ok: true, count: uniqueRecords.length })
       } catch (error) {
-        sourceStatus.push({ source: 'Google Patents public search', ok: false, count: 0, error: error.message })
+        sourceStatus.push({ source: 'CNIPA public patent data', ok: false, count: 0, error: error.message })
         const cache = loadPatentCache()
         cachedPatentRecords = cache.records.map(record => ({
           ...record,
-          source: 'Google Patents cached fallback',
-          cachedSource: record.source || 'Google Patents public search',
+          source: 'CNIPA patent cache fallback',
+          cachedSource: record.source || 'CNIPA public patent data',
           cachedAt: cache.savedAt,
         }))
         patentCacheSavedAt = cache.savedAt
@@ -628,30 +631,30 @@ async function scanConfiguredSources(options = {}) {
           message: cachedPatentRecords.length ? `使用${cache.savedAt || '未知时间'}的最近成功结果` : '尚无可用的成功扫描缓存',
         })
       }
-      if (options.includeVerifiedPatents) {
-        const verifiedPatents = config.patentSearch.googlePatents?.verifiedPatents || []
-        const verifiedRecords = []
-        const verificationErrors = []
-        for (const seed of verifiedPatents) {
-          const verification = await verifyKnownGooglePatent(seed)
-          verifiedRecords.push(verification.record)
-          if (verification.live) verifiedPatentLiveCount++
-          else verificationErrors.push(`${seed.patentNumber}: ${verification.error}`)
-        }
-        verifiedPatentCount = verifiedRecords.length
-        all.push(...verifiedRecords)
-        sourceStatus.push({
-          source: 'One-time known Chinese patent verification',
-          ok: verifiedRecords.length > 0,
-          count: verifiedRecords.length,
-          live: verifiedPatentLiveCount,
-          fallback: verifiedRecords.length - verifiedPatentLiveCount,
-          message: verifiedRecords.length
-            ? `仅本次手动测试：实时核验 ${verifiedPatentLiveCount}；本地已确认记录 ${verifiedRecords.length - verifiedPatentLiveCount}`
-            : '尚未配置已知专利验证项',
-          errors: verificationErrors,
-        })
+    }
+    if (options.includeVerifiedPatents) {
+      const verifiedPatents = config.patentSearch.googlePatents?.verifiedPatents || []
+      const verifiedRecords = []
+      const verificationErrors = []
+      for (const seed of verifiedPatents) {
+        const verification = await verifyKnownGooglePatent(seed)
+        verifiedRecords.push(verification.record)
+        if (verification.live) verifiedPatentLiveCount++
+        else verificationErrors.push(`${seed.patentNumber}: ${verification.error}`)
       }
+      verifiedPatentCount = verifiedRecords.length
+      all.push(...verifiedRecords)
+      sourceStatus.push({
+        source: 'One-time known Chinese patent verification',
+        ok: verifiedRecords.length > 0,
+        count: verifiedRecords.length,
+        live: verifiedPatentLiveCount,
+        fallback: verifiedRecords.length - verifiedPatentLiveCount,
+        message: verifiedRecords.length
+          ? `仅本次手动测试：实时核验 ${verifiedPatentLiveCount}；本地已确认记录 ${verifiedRecords.length - verifiedPatentLiveCount}`
+          : '尚未配置已知专利验证项',
+        errors: verificationErrors,
+      })
     }
   }
   const patentCandidates = all.filter(record => record.type === 'patent')
@@ -672,10 +675,10 @@ async function scanConfiguredSources(options = {}) {
       if (patentFilter.relevant[index].titleZh) localizedChinesePatents++
     } catch {}
   }
-  if (googleLiveSucceeded) {
-    const googleRecords = patentFilter.relevant.filter(record => record.source === 'Google Patents public search')
-    if (googleRecords.length) {
-      const cache = savePatentCache(googleRecords)
+  if (cnipaLiveSucceeded) {
+    const cnipaRecords = patentFilter.relevant.filter(record => record.source === 'CNIPA public patent data')
+    if (cnipaRecords.length) {
+      const cache = savePatentCache(cnipaRecords)
       patentCacheSavedAt = cache.savedAt
     }
   }
@@ -709,8 +712,8 @@ async function scanConfiguredSources(options = {}) {
       ignored: patentFilter.ignored.length,
     },
     patentCoverage: {
-      status: googleLiveSucceeded ? 'complete' : cachedPatentRecords.length ? 'cached' : verifiedPatentCount ? 'verification-only' : 'incomplete',
-      googleLiveSucceeded,
+      status: cnipaLiveSucceeded ? 'complete' : cachedPatentRecords.length ? 'cached' : verifiedPatentCount ? 'verification-only' : 'incomplete',
+      cnipaLiveSucceeded,
       cacheUsed: cachedPatentRecords.length > 0,
       cacheCount: cachedPatentRecords.length,
       cacheSavedAt: patentCacheSavedAt,

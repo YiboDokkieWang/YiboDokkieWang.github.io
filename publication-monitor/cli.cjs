@@ -134,21 +134,21 @@ function markdownReport(report) {
       '',
       '## ⚠️ 专利扫描使用缓存',
       '',
-      `Google Patents实时检索失败，本次使用${report.patentCoverage.cacheSavedAt || '最近一次'}保存的 ${report.patentCoverage.cacheCount || 0} 条专利候选。论文扫描不受影响。`,
+      `国家知识产权局公开专利数据实时检索失败，本次使用${report.patentCoverage.cacheSavedAt || '最近一次'}保存的 ${report.patentCoverage.cacheCount || 0} 条专利候选。论文扫描不受影响。`,
     )
   } else if (report.patentCoverage?.status === 'verification-only') {
     lines.push(
       '',
       '## ⚠️ 新专利发现检索未完成',
       '',
-      `本次至少识别到 ${report.patentCoverage.verifiedPatentCount || 0} 条已知中国专利记录，证明专利识别、查重和报告流程可以工作；但Google Patents按姓名检索失败，因此不能据此判断没有其他新专利。`,
+      `本次至少识别到 ${report.patentCoverage.verifiedPatentCount || 0} 条已知中国专利记录，证明专利识别、查重和报告流程可以工作；但国家知识产权局公开专利数据按姓名检索失败，因此不能据此判断没有其他新专利。`,
     )
   } else if (report.patentCoverage?.status === 'incomplete') {
     lines.push(
       '',
       '## ⚠️ 本次专利扫描未完成',
       '',
-      'Google Patents实时检索失败，并且当前没有可用缓存或已知专利验证项。下面的结果不能用于判断“没有新专利”，请稍后重新运行扫描。论文扫描不受影响。',
+      '国家知识产权局公开专利数据实时检索失败，并且当前没有可用缓存或已知专利验证项。下面的结果不能用于判断“没有新专利”，请稍后重新运行扫描。论文扫描不受影响。',
     )
   }
   if (report.items?.length) {

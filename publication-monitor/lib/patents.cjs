@@ -414,9 +414,9 @@ async function fetchGooglePatentCsv(alias) {
   throw lastError
 }
 
-async function searchCnipaPublicPatents(query, options = {}) {
+async function fetchCnipaPublicPatentPage(query, options = {}) {
   const searchStr = String(query).trim()
-  if (!searchStr) return []
+  if (!searchStr) return { allCount: 0, records: [] }
   const requestTime = Date.now()
   const sign = crypto.createHash('md5').update(`zscqgbgg${requestTime}`).digest('hex')
   const condition = {
@@ -426,8 +426,8 @@ async function searchCnipaPublicPatents(query, options = {}) {
     requestTime,
     raw: {
       searchStr: normalizeChineseApplicationNumber(searchStr).replace(/^CN|\./g, '') || searchStr,
-      from: 0,
-      size: Math.min(20, Math.max(1, Number(options.size) || 10)),
+      from: Math.max(0, Number(options.from) || 0),
+      size: Math.min(100, Math.max(1, Number(options.size) || 10)),
       pubtypeList: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     },
   }
@@ -443,7 +443,25 @@ async function searchCnipaPublicPatents(query, options = {}) {
   })
   let payload = JSON.parse(await response.text())
   if (typeof payload === 'string') payload = JSON.parse(payload)
-  return parseCnipaPublicResults(payload)
+  return {
+    allCount: Math.max(0, Number(payload.allCount) || 0),
+    records: parseCnipaPublicResults(payload),
+  }
+}
+
+async function searchCnipaPublicPatents(query, options = {}) {
+  const size = Math.min(100, Math.max(1, Number(options.size) || 10))
+  const maxResults = Math.min(5000, Math.max(size, Number(options.maxResults) || size))
+  const first = await fetchCnipaPublicPatentPage(query, { from: 0, size })
+  const records = [...first.records]
+  const target = Math.min(first.allCount, maxResults)
+  for (let from = size; from < target; from += size) {
+    const page = await fetchCnipaPublicPatentPage(query, { from, size })
+    records.push(...page.records)
+  }
+  const byNumber = new Map()
+  records.forEach(record => byNumber.set(record.patentNumber, record))
+  return [...byNumber.values()]
 }
 
 async function translateChineseText(value = '') {

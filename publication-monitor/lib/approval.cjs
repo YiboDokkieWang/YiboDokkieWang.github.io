@@ -49,11 +49,11 @@ function patentCoverageNotice(report = {}, compact = false) {
     return compact ? text : `> ${text}`
   }
   if (report.patentCoverage?.status === 'verification-only') {
-    const text = `⚠️ 本次识别到 ${report.patentCoverage.verifiedPatentCount || 0} 件已知中国专利，但Google Patents按姓名发现新专利的检索失败；不能据此判断没有其他新专利。`
+    const text = `⚠️ 本次识别到 ${report.patentCoverage.verifiedPatentCount || 0} 件已知中国专利，但国家知识产权局公开专利数据按姓名检索失败；不能据此判断没有其他新专利。`
     return compact ? text : `> **${text}**`
   }
   if (report.patentCoverage?.status === 'incomplete') {
-    const text = '⚠️ 本次专利扫描未完成：Google Patents未成功返回数据，且没有可用缓存或已知专利验证项。因此，本次候选不能据此判断没有新专利。'
+    const text = '⚠️ 本次专利扫描未完成：国家知识产权局公开专利数据未成功返回，且没有可用缓存或已知专利验证项。因此，本次候选不能据此判断没有新专利。'
     return compact ? text : `> **${text}**`
   }
   return '✅ 论文和专利数据源扫描正常。'

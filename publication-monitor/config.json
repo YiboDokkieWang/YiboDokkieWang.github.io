@@ -13,6 +13,12 @@
   "patentSearch": {
     "enabled": true,
     "nameAliases": ["Yibo Wang", "Wang Yibo", "Wang, Yibo", "WANG YIBO", "王艺博"],
+    "cnipaPublic": {
+      "enabled": true,
+      "aliases": ["王艺博"],
+      "pageSize": 100,
+      "maxResults": 1000
+    },
     "googlePatents": {
       "enabled": true,
       "aliases": ["王艺博"],
