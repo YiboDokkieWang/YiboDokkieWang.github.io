@@ -1,6 +1,8 @@
 ## 期刊论文
 
 
+
+1. Kai Yang, Minghao Wang, Junyu Chen, Yinbo Ge, Qiang Yi, <strong>Yibo Wang</strong>, and Xinbo Ruan, "Hierarchical Power Flow Control Strategy for CHB-Based APQC-ESS of Railway System Under Unbalanced Grid," *IEEE Transactions on Transportation Electrification*, vol. 12, no. 4, pp. 6217-6229, 2026. [[论文]](https://doi.org/10.1109/tte.2026.3684521)
 1. <strong>Yibo Wang</strong>, Man-Chung Wong, and Chi-Kong Wong, "Review of talkative power conversion from power electronics and communication perspectives," *Renewable and Sustainable Energy Reviews*, vol. 230, pp. 116708, 2026. [[论文]](https://doi.org/10.1016/j.rser.2026.116708)
 1. <strong>王艺博</strong>, 苏高民, 邱榕鑫. 基于跃变探索式电导增量法的光伏阵列全局最大功率点跟踪控制研究[J]. *电气工程学报*, 2024, 19(01): 351-357. [[论文]](http://www.cjeecmp.cn/CN/10.11985/2024.01.038) [[代码]](https://github.com/YiboDokkieWang/MPPTforPV)
 1. <strong>Yibo Wang</strong>, "SOC Estimation for Electrical Vehicle Lithium Batteries Based on Simplified-spherical Unscented Kalman Filtering," *Journal of Informatics Electrical and Electronics Engineering (JIEEE)*, vol. 2022, no. 4, pp. 1-11, 2022. [[论文]](https://jieee.a2zjournals.com/index.php/ieee/article/view/20)

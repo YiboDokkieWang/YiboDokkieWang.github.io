@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastCheckedAt": "2026-11-11T05:13:02.848Z",
+  "lastCheckedAt": "2026-11-11T05:16:14.603Z",
   "knownIdentifiers": [
     "doi:10.1016/j.rser.2026.116708",
     "doi:10.1109/etfg61999.2025.11401175",
@@ -9,7 +9,7 @@
   ],
   "lastRun": {
     "mode": "scan",
-    "found": 4,
+    "found": 3,
     "missing": 1,
     "upgrades": 0,
     "ambiguous": 0
