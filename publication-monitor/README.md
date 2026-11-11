@@ -44,6 +44,14 @@ node publication-monitor/local-server.cjs
 
 本地界面只有一个智能输入框。可以直接粘贴题目、作者加题目、完整参考文献、DOI、BibTeX、IEEE链接或专利信息。程序会拆分题目、作者、期刊/会议、年份和标识符，并按综合相似度排列候选结果。
 
+## Vercel在线管理器
+
+- 仓库根目录的 `vercel.json`、`package.json` 和 `api/publication-manager.js` 用于部署在线私有管理器。
+- 在线界面由 `publication-monitor/vercel-src` 构建，保留智能输入、候选排序和中英文预览，不显示测试数据入口。
+- Vercel项目必须启用 Vercel Authentication，并在加密环境变量中配置 `GITHUB_MANAGER_TOKEN`。
+- `GITHUB_MANAGER_TOKEN` 应使用Fine-grained Personal Access Token，只授权 `YiboDokkieWang.github.io` 仓库的 `Contents: Read and write`。不要把Token写入代码或聊天记录。
+- 在线确认会触发 `publication_manager_add` 仓库事件；统一的 `Publication Monitor` 工作流收到结构化记录后更新中英文成果文件并推送到 `main`。
+
 ## 安全规则
 
 - 测试数据带有 `fixture` 标记，核心程序拒绝将其写入正式网站。

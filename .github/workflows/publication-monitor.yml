@@ -8,6 +8,8 @@ on:
     types: [edited]
   issue_comment:
     types: [created]
+  repository_dispatch:
+    types: [publication_manager_add]
   workflow_dispatch:
     inputs:
       operation:
@@ -56,7 +58,7 @@ concurrency:
 
 jobs:
   publication-monitor:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.actor == 'YiboDokkieWang')
+    if: github.event_name == 'schedule' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch') && github.actor == 'YiboDokkieWang')
     runs-on: ubuntu-latest
     env:
       IEEE_API_KEY: ${{ secrets.IEEE_API_KEY }}
@@ -80,13 +82,23 @@ jobs:
         shell: bash
         run: |
           mkdir -p publication-monitor/output
-          operation="${{ github.event_name == 'schedule' && 'scan' || inputs.operation }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            operation="scan"
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            operation="online-add"
+          else
+            operation="${{ inputs.operation }}"
+          fi
           case "$operation" in
             scan)
               node publication-monitor/cli.cjs scan --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
             add)
               node publication-monitor/cli.cjs identify --apply --type "${{ inputs.result_type }}" --input-kind "${{ inputs.input_kind }}" --value "$MANUAL_INPUT_VALUE" --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              ;;
+            online-add)
+              node -e "const fs=require('fs'); const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')); fs.writeFileSync('publication-monitor/output/online-record.json', JSON.stringify(event.client_payload?.record || {}))"
+              node publication-monitor/cli.cjs apply-record --record-file publication-monitor/output/online-record.json --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
             *)
               echo "Unknown operation: $operation" >&2
@@ -141,7 +153,7 @@ jobs:
           echo "[打开本次成果确认页面](${issue_url})" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create publication update pull request
-        if: steps.monitor.outputs.changed_publications == 'true'
+        if: steps.monitor.outputs.changed_publications == 'true' && github.event_name != 'repository_dispatch'
         shell: bash
         run: |
           branch="automation/publication-monitor-${GITHUB_RUN_ID}"
@@ -157,6 +169,20 @@ jobs:
             --title "发表成果监测：请确认网站更新" \
             --body-file publication-monitor/output/report.md \
             --reviewer YiboDokkieWang
+
+      - name: Publish online manager addition
+        if: steps.monitor.outputs.changed_publications == 'true' && github.event_name == 'repository_dispatch'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add contents/publications.md contents/zh/publications.md publication-monitor/state.json
+          git commit -m "Add publication from online manager"
+          git pull --rebase origin main
+          git push origin main
+          echo "## 在线成果已发布" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "个人网站将在GitHub Pages构建完成后显示新成果。" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save scan state and patent cache
         if: steps.monitor.outputs.operation == 'scan'

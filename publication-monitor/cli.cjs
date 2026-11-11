@@ -254,6 +254,33 @@ async function commandIdentify(args) {
   }
 }
 
+function commandApplyRecord(args) {
+  if (!args['record-file']) throw new Error('apply-record requires --record-file')
+  const record = JSON.parse(fs.readFileSync(args['record-file'], 'utf8'))
+  if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error('在线成果记录格式无效')
+  if (!['journal', 'conference', 'patent'].includes(record.type)) throw new Error('在线成果类型无效')
+  if (record.fixture || record.source === 'fixture') throw new Error('测试数据禁止写入正式网站')
+  if (!record.title) throw new Error('在线成果缺少题目')
+  if (record.type === 'patent' && !record.patentNumber) throw new Error('在线专利缺少专利号')
+  const plan = planRecord(record)
+  const changed = []
+  if (['new', 'upgrade'].includes(plan.comparison.status)) changed.push(...applyPlan(plan).changed)
+  return {
+    mode: 'online-add',
+    checkedAt: new Date().toISOString(),
+    counts: {
+      found: 1,
+      existing: Number(plan.comparison.status === 'existing'),
+      missing: Number(plan.comparison.status === 'new'),
+      upgrades: Number(plan.comparison.status === 'upgrade'),
+      ambiguous: Number(plan.comparison.status === 'ambiguous'),
+    },
+    items: [{ ...plan.record, status: plan.comparison.status, notificationTitle: originalTitleForNotification(plan.record) }],
+    plan,
+    changedPublications: changed.length > 0,
+  }
+}
+
 function commandFixture(args) {
   const fixture = loadFixture(args.name || 'new-journal')
   if (fixture.scenario === 'early-access-upgrade') {
@@ -291,9 +318,10 @@ async function main() {
     report = { mode: 'inventory', checkedAt: new Date().toISOString(), inventory: current, counts: { found: current.total, existing: current.total, missing: 0, upgrades: 0, ambiguous: 0 }, changedPublications: false }
   } else if (command === 'fixture') report = commandFixture(args)
   else if (command === 'identify') report = await commandIdentify(args)
+  else if (command === 'apply-record') report = commandApplyRecord(args)
   else if (command === 'scan') report = await commandScan(args)
   else {
-    process.stdout.write('Commands: self-test | inventory | fixture --name <fixture> | identify --type <type> --input-kind <kind> --value <value> [--apply] | scan [--apply]\n')
+    process.stdout.write('Commands: self-test | inventory | fixture --name <fixture> | identify --type <type> --input-kind <kind> --value <value> [--apply] | apply-record --record-file <file> | scan [--apply]\n')
     return
   }
   if (args['markdown-output']) {

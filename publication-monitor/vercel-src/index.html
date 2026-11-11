@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>发表成果在线管理器</title>
+  <meta name="description" content="识别、核对并提交论文、会议论文和专利到个人网站">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">YIBODOKKIEWANG</p>
+      <h1>发表成果在线管理器</h1>
+      <p class="subtitle">智能识别、候选排序、中英文预览，确认后自动更新个人网站</p>
+    </div>
+    <div class="local-badge"><span></span> Vercel 私有访问</div>
+  </header>
+
+  <main>
+    <section class="notice" aria-label="安全说明">
+      <strong>当前是在线私有版本。</strong>
+      页面由Vercel身份验证保护；只有确认提交后，系统才会触发GitHub更新。
+    </section>
+
+    <section class="dashboard" aria-label="网站状态">
+      <article><span>期刊论文</span><strong id="count-journal">—</strong></article>
+      <article><span>会议论文</span><strong id="count-conference">—</strong></article>
+      <article><span>专利</span><strong id="count-patent">—</strong></article>
+      <article class="profile-card"><span>管理身份</span><strong>Yibo Wang</strong><small>ORCID 0000-0003-0090-3181</small></article>
+    </section>
+
+    <div class="layout">
+      <section class="panel form-panel">
+        <div class="section-heading">
+          <div><span class="step">01</span><h2>输入成果信息</h2></div>
+          <button id="inventory-button" class="button ghost" type="button">检查当前网站</button>
+        </div>
+
+        <form id="identify-form">
+          <input id="type" name="type" type="hidden" value="auto">
+          <input id="input-kind" name="inputKind" type="hidden" value="auto">
+          <label>
+            <span>粘贴任意成果信息</span>
+            <textarea id="value" name="value" rows="8" placeholder="可以输入题目、作者与题目、完整参考文献、DOI、BibTeX、IEEE链接或专利信息；无需预先选择输入类型。" required></textarea>
+          </label>
+          <p class="smart-hint"><b>智能识别：</b>系统会拆分题目、作者、期刊/会议、年份和标识符，联网检索后在右侧按综合相似度排列候选结果。</p>
+          <div class="form-actions">
+            <button class="button primary" type="submit">识别并检查</button>
+            <button id="clear-button" class="button ghost" type="button">清空</button>
+          </div>
+        </form>
+
+        <div class="divider"><span>使用说明</span></div>
+        <ol class="online-steps">
+          <li>粘贴你掌握的任意论文或专利信息。</li>
+          <li>在右侧选择与原始信息最匹配的候选条目。</li>
+          <li>检查中英文格式，输入确认词后提交。</li>
+          <li>GitHub自动更新，通常2–5分钟后在个人网站显示。</li>
+        </ol>
+      </section>
+
+      <section class="panel result-panel" aria-live="polite">
+        <div class="section-heading">
+          <div><span class="step">02</span><h2>识别与确认</h2></div>
+          <span id="result-status" class="status neutral">等待输入</span>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon">◎</div>
+          <h3>结果将在这里显示</h3>
+          <p>输入信息后，候选结果会按题目、作者、期刊和年份的综合相似度排序。</p>
+        </div>
+
+        <div id="result-content" class="hidden">
+          <div id="warning" class="warning hidden"></div>
+          <div id="analysis" class="analysis-box hidden"></div>
+          <dl id="metadata" class="metadata"></dl>
+
+          <div id="candidate-section" class="candidate-section hidden">
+            <h3>候选成果（按综合相似度排序）</h3>
+            <div id="candidate-list"></div>
+          </div>
+
+          <div class="match-box">
+            <div><span>网站判断</span><strong id="match-label">—</strong></div>
+            <div><span>置信度</span><strong id="confidence">—</strong></div>
+          </div>
+
+          <div class="preview-tabs" role="tablist">
+            <button class="active" data-tab="en" type="button">英文页面</button>
+            <button data-tab="zh" type="button">中文页面</button>
+          </div>
+          <div id="entry-preview" class="entry-preview"></div>
+          <details>
+            <summary>查看将写入的Markdown内容</summary>
+            <pre id="markdown-preview"></pre>
+          </details>
+
+          <div id="apply-area" class="apply-area hidden">
+            <label class="confirm-label">
+              <span>确认候选和格式无误后，请输入 <b>CONFIRM</b></span>
+              <input id="confirmation" autocomplete="off" placeholder="CONFIRM">
+            </label>
+            <button id="apply-button" class="button danger" type="button">确认并提交到个人网站</button>
+            <p>提交后GitHub会自动修改网站并发布。请勿重复点击。</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section id="report-panel" class="panel report-panel hidden" aria-live="polite">
+      <div class="section-heading"><div><span class="step">03</span><h2>网站检查</h2></div><button id="close-report" class="button ghost" type="button">关闭</button></div>
+      <div id="report-content"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "yibodokkiewang-publication-manager",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node publication-monitor/build-vercel.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

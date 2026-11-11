@@ -82,6 +82,8 @@ select:focus, textarea:focus, input:focus { border-color: var(--blue); box-shado
 .fixture-grid span { margin-top: .15rem; color: var(--muted); font-size: .78rem; }
 .utility-actions { display: flex; gap: 1rem; margin-top: 1rem; }
 .text-button { padding: 0; border: 0; color: var(--blue); background: none; font-size: .86rem; text-decoration: underline; text-underline-offset: 3px; }
+.online-steps { margin: 0; padding-left: 1.4rem; color: var(--muted); }
+.online-steps li { margin: .45rem 0; padding-left: .2rem; }
 
 .status { padding: .3rem .65rem; border-radius: 999px; font: 700 .76rem Arial, "Microsoft YaHei", sans-serif; }
 .status.neutral { color: #475467; background: #f2f4f7; }
