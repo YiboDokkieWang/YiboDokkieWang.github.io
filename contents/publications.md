@@ -18,5 +18,7 @@
 ## Patents
 
 
+
 1. <strong>Yibo Wang</strong>, Yuanbing Ouyang, and Jiwen Liu, "An adaptive Kalman filter algorithm suitable for lithium battery SOC estimation," Chinese Patent CN117907843B, Sep. 22, 2026.
+1. <strong>Yibo Wang</strong> and Wenqi Zhang, "A battery active balancing method for large-scale energy storage systems," Chinese Patent CN116599179A (Under Substantive Examination), Aug. 15, 2023. [[Patent]](https://patents.google.com/patent/CN116599179A/zh)
 1. <strong>Yibo Wang</strong>, "A MPPT control method, control device, medium and equipment based on incremental conductance method," Chinese Patent CN116225123A (Under Substantive Examination), Jun. 6, 2023. [[Patent]](https://patents.google.com/patent/CN116225123A/zh)
