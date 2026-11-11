@@ -9,7 +9,8 @@ const REPOSITORY = 'YiboDokkieWang/YiboDokkieWang.github.io'
 const ALLOWED_FIELDS = [
   'type', 'title', 'titleEn', 'titleZh', 'originalTitle', 'originalLanguage',
   'authors', 'authorsEn', 'authorsZh', 'venue', 'year', 'date',
-  'volume', 'issue', 'pages', 'articleNumber', 'doi', 'url', 'patentNumber', 'status',
+  'volume', 'issue', 'pages', 'articleNumber', 'doi', 'url', 'patentNumber', 'applicationNumber',
+  'filingDate', 'publicationDate', 'status', 'legalStatus',
   'source', 'ieeeDocumentId', 'semanticScholarId',
   'inventors', 'applicants', 'familyKey',
   'matchScore', 'matchBreakdown', 'sourceScore',

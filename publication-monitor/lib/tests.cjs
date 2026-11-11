@@ -13,7 +13,16 @@ const {
   planRecord,
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
-const { assessPatentRelevance, deduplicatePatentFamilies, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults, verifiedPatentRecord } = require('./patents.cjs')
+const {
+  assessPatentRelevance,
+  deduplicatePatentFamilies,
+  normalizeChineseApplicationNumber,
+  parseCnipaPublicResults,
+  parseGooglePatentCsv,
+  parseGooglePatentHtml,
+  parseGooglePatentResults,
+  verifiedPatentRecord,
+} = require('./patents.cjs')
 const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue, renderApprovalNotification } = require('./approval.cjs')
 const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
@@ -158,6 +167,35 @@ function runSelfTests() {
     assert.strictEqual(records[0].status, 'published')
     assert.strictEqual(records[1].status, 'granted')
     assert.strictEqual(records[0].inventors[0], '王艺博')
+  })
+
+  test('中国申请号可识别带点和不带点的格式', () => {
+    assert.strictEqual(normalizeChineseApplicationNumber('2023110042264'), 'CN202311004226.4')
+    assert.strictEqual(normalizeChineseApplicationNumber('CN202311004226.4'), 'CN202311004226.4')
+    const analysis = parseSmartInput('2023110042264')
+    assert.strictEqual(analysis.kind, 'patent')
+    assert.strictEqual(analysis.applicationNumber, 'CN202311004226.4')
+  })
+
+  test('国家公开专利数据可读取未授权的实审专利', () => {
+    const records = parseCnipaPublicResults({
+      patentList: [{
+        an: '2023110042264',
+        pn: 'CN117458638A',
+        ti: '一种环式锂电池主动均衡拓扑及其主动均衡方法',
+        e72: '王艺博;张文起',
+        e71_73: '王艺博',
+        ad: 20230810,
+        pd: 20240126,
+        pubtype: 1,
+      }],
+    })
+    assert.strictEqual(records.length, 1)
+    assert.strictEqual(records[0].applicationNumber, 'CN202311004226.4')
+    assert.strictEqual(records[0].patentNumber, 'CN117458638A')
+    assert.strictEqual(records[0].status, 'published')
+    assert.strictEqual(records[0].legalStatus, 'published-or-pending')
+    assert.deepStrictEqual(records[0].inventors, ['王艺博', '张文起'])
   })
 
   test('Google Patents单次CSV导出可读取完整发明人字段', () => {

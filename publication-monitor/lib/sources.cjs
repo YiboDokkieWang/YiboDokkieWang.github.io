@@ -1,5 +1,13 @@
 const { cleanDoi, loadConfig, normalizeTitle, titleSimilarity } = require('./core.cjs')
-const { deduplicatePatentFamilies, enrichGooglePatentChinese, filterRelevantPatents, searchGooglePatentsByInventors, verifyKnownGooglePatent } = require('./patents.cjs')
+const {
+  deduplicatePatentFamilies,
+  enrichGooglePatentChinese,
+  filterRelevantPatents,
+  normalizeChineseApplicationNumber,
+  searchCnipaPublicPatents,
+  searchGooglePatentsByInventors,
+  verifyKnownGooglePatent,
+} = require('./patents.cjs')
 const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
 const REQUEST_TIMEOUT_MS = 15000
@@ -215,6 +223,7 @@ function parseBibtex(text, requestedType = 'auto') {
 
 function parsePatentText(text) {
   const patentNumber = String(text).match(/\b(?:CN|EP|US|WO)\s?\d+[A-Z]\d?\b/i)?.[0]?.replace(/\s/g, '').toUpperCase() || ''
+  const applicationNumber = normalizeChineseApplicationNumber(text)
   const date = String(text).match(/\b(19|20)\d{2}[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b/)?.[0]?.replace(/[/.]/g, '-') || ''
   const quoted = String(text).match(/[“"]([^”"]{5,})[”"]/)
   return {
@@ -224,6 +233,7 @@ function parsePatentText(text) {
     authors: [],
     year: Number(date.slice(0, 4)) || null,
     date,
+    applicationNumber,
     patentNumber,
     status: /\bB\d?\b/i.test(patentNumber) ? 'granted' : 'published',
     source: 'Manual patent input',
@@ -281,11 +291,12 @@ function parseSmartInput(value = '') {
 
   const doi = extractDoiFromText(raw)
   const patentNumber = raw.match(/\b(?:CN|EP|US|WO)\s?\d+[A-Z]\d?\b/i)?.[0]?.replace(/\s/g, '').toUpperCase() || ''
+  const applicationNumber = normalizeChineseApplicationNumber(raw)
   const ieeeDocumentId = raw.match(/ieeexplore\.ieee\.org\/(?:document\/|author\/)?(\d{7,})/i)?.[1]
     || (/^\d{7,}$/.test(raw) ? raw : '')
-  if (patentNumber) {
+  if (patentNumber || applicationNumber) {
     const record = parsePatentText(raw)
-    return { kind: 'patent', raw, patentNumber, title: record.title, authors: record.authors, year: record.year, record }
+    return { kind: 'patent', raw, patentNumber, applicationNumber, title: record.title, authors: record.authors, year: record.year, record }
   }
   if (doi) return { kind: 'doi', raw, doi }
   if (ieeeDocumentId) return { kind: 'ieee', raw, ieeeDocumentId }
@@ -348,6 +359,16 @@ function containedTitleSimilarity(input, candidateTitle) {
 function rankCandidates(candidates, analysis) {
   return candidates.map((candidate, index) => {
     const breakdown = {}
+    const normalizeIdentifier = value => String(value || '').toUpperCase().replace(/^CN/, '').replace(/[^0-9A-Z]/g, '')
+    const expectedIdentifiers = [analysis.applicationNumber, analysis.patentNumber]
+      .map(normalizeIdentifier).filter(Boolean)
+    const candidateIdentifiers = [candidate.applicationNumber, candidate.patentNumber]
+      .map(normalizeIdentifier).filter(Boolean)
+    const identifierMatched = expectedIdentifiers.some(expected => candidateIdentifiers.includes(expected))
+    if (identifierMatched) {
+      breakdown.identifier = 1
+      return { ...candidate, matchScore: 1, matchBreakdown: breakdown }
+    }
     let weightedScore = 0
     let totalWeight = 0
     const titleScore = containedTitleSimilarity(analysis.title || analysis.raw, candidate.title)
@@ -392,7 +413,19 @@ function enrichAnalysisFromCandidate(analysis, candidate) {
 async function identifySmart(value, requestedType = 'auto') {
   const analysis = parseSmartInput(value)
   if (analysis.kind === 'bibtex') return { record: analysis.record, candidates: [], analysis }
-  if (analysis.kind === 'patent') return { record: analysis.record, candidates: [], analysis }
+  if (analysis.kind === 'patent') {
+    try {
+      const sourceCandidates = await searchCnipaPublicPatents(analysis.applicationNumber || analysis.patentNumber || analysis.raw)
+      const candidates = rankCandidates(sourceCandidates, analysis)
+      if (!candidates.length) throw new Error('官方公开数据库未返回匹配记录')
+      return { record: candidates[0], candidates, analysis }
+    } catch (error) {
+      if (analysis.record.title && analysis.record.patentNumber) {
+        return { record: analysis.record, candidates: [], analysis, warning: `官方专利查询暂时失败，已保留手动输入：${error.message}` }
+      }
+      throw new Error(`没有通过该申请号或公开号找到专利：${error.message}`)
+    }
+  }
   if (analysis.kind === 'doi') {
     try {
       return { record: await lookupCrossrefDoi(analysis.doi, requestedType), candidates: [], analysis }
@@ -403,12 +436,22 @@ async function identifySmart(value, requestedType = 'auto') {
   if (analysis.kind === 'ieee') {
     return { record: await lookupIeeeDocument(analysis.ieeeDocumentId, requestedType), candidates: [], analysis }
   }
-  const sourceCandidates = await searchCrossrefBibliographic(analysis.raw, requestedType)
+  const searches = []
+  if (requestedType !== 'patent') searches.push(searchCrossrefBibliographic(analysis.raw, requestedType))
+  if (requestedType === 'auto' || requestedType === 'patent') searches.push(searchCnipaPublicPatents(analysis.raw))
+  const settled = await Promise.allSettled(searches)
+  const sourceCandidates = settled.flatMap(result => result.status === 'fulfilled' ? result.value : [])
   let candidates = rankCandidates(sourceCandidates, analysis)
-  if (!candidates.length) throw new Error('没有找到相关文献，请补充题目、作者或DOI后重试')
+  if (!candidates.length) throw new Error('没有找到相关论文或专利，请补充题目、作者、DOI、申请号或公开号后重试')
   const enrichedAnalysis = enrichAnalysisFromCandidate(analysis, candidates[0])
   candidates = rankCandidates(sourceCandidates, enrichedAnalysis)
-  return { record: candidates[0], candidates, analysis: enrichedAnalysis }
+  const failedSources = settled.filter(result => result.status === 'rejected').map(result => result.reason?.message).filter(Boolean)
+  return {
+    record: candidates[0],
+    candidates,
+    analysis: enrichedAnalysis,
+    warning: failedSources.length ? `部分数据源暂时不可用，但其余检索已完成：${failedSources.join('；')}` : '',
+  }
 }
 
 async function identify({ type = 'auto', inputKind = 'auto', value = '' }) {
@@ -436,7 +479,7 @@ async function identify({ type = 'auto', inputKind = 'auto', value = '' }) {
   }
   if (inputKind === 'ieee') return { record: await lookupIeeeDocument(value, requestedType), candidates: [] }
   if (inputKind === 'bibtex') return { record: parseBibtex(value, requestedType), candidates: [] }
-  if (inputKind === 'patent' || requestedType === 'patent') return { record: parsePatentText(value), candidates: [] }
+  if (inputKind === 'patent' || requestedType === 'patent') return identifySmart(value, 'patent')
   throw new Error(`暂不支持的输入方式：${inputKind}`)
 }
 

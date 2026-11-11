@@ -89,17 +89,20 @@ function renderEntry(markdown) {
 }
 
 function metadataRows(record) {
+  const patentStatus = record.status === 'granted' ? '已授权' : '已公开 / 未授权（含实审阶段）'
   const values = [
     ['类型', record.type === 'journal' ? '期刊论文' : record.type === 'conference' ? '会议论文' : '专利'],
     ['题目', record.title || '未识别'],
     ['作者', (record.authors || record.inventors || []).join(', ') || '未识别'],
-    [record.type === 'conference' ? '会议' : record.type === 'patent' ? '专利号' : '期刊', record.type === 'patent' ? record.patentNumber : record.venue],
+    [record.type === 'conference' ? '会议' : record.type === 'patent' ? '公开号' : '期刊', record.type === 'patent' ? record.patentNumber : record.venue],
+    ['申请号', record.type === 'patent' ? record.applicationNumber : ''],
+    ['专利状态', record.type === 'patent' ? patentStatus : ''],
     ['年份', record.year || '未识别'],
     ['卷期页码', [record.volume && `Vol. ${record.volume}`, record.issue && `No. ${record.issue}`, record.pages && `pp. ${record.pages}`, record.articleNumber && `Art. ${record.articleNumber}`].filter(Boolean).join(', ') || '尚无'],
     ['DOI', record.doi || '无'],
     ['数据来源', record.source || '未知'],
   ]
-  return values.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || '—')}</dd>`).join('')
+  return values.filter(([, value]) => value !== '').map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || '—')}</dd>`).join('')
 }
 
 function renderAnalysis(analysis) {
@@ -115,14 +118,15 @@ function renderAnalysis(analysis) {
     ['年份', analysis.year],
     ['DOI', analysis.doi],
     ['IEEE编号', analysis.ieeeDocumentId],
-    ['专利号', analysis.patentNumber],
+    ['专利公开号', analysis.patentNumber],
+    ['中国申请号', analysis.applicationNumber],
   ].filter(([, value]) => value)
   elements.analysis.innerHTML = `<strong>从输入内容中拆分得到</strong><dl>${items.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`).join('')}</dl>`
   elements.analysis.classList.remove('hidden')
 }
 
 function matchReasons(candidate) {
-  const names = { title: '题目', authors: '作者', venue: '期刊/会议', year: '年份' }
+  const names = { identifier: '号码', title: '题目', authors: '作者', venue: '期刊/会议', year: '年份' }
   return Object.entries(candidate.matchBreakdown || {})
     .filter(([, score]) => score > 0)
     .map(([field, score]) => `${names[field] || field}${Math.round(score * 100)}%`)
@@ -149,7 +153,10 @@ function renderCandidates(candidates) {
     score.textContent = `${Math.round((candidate.matchScore || 0) * 100)}%`
     heading.append(title, score)
     const detail = document.createElement('span')
-    detail.textContent = `${candidate.year || '未知年份'} · ${candidate.venue || candidate.patentNumber || '未知来源'} · ${candidate.doi || candidate.patentNumber || '无标识符'}`
+    const patentStatus = candidate.type === 'patent' ? (candidate.status === 'granted' ? '已授权' : '已公开/未授权') : ''
+    detail.textContent = candidate.type === 'patent'
+      ? `${candidate.year || '未知年份'} · 申请号 ${candidate.applicationNumber || '未知'} · 公开号 ${candidate.patentNumber || '未知'} · ${patentStatus}`
+      : `${candidate.year || '未知年份'} · ${candidate.venue || '未知来源'} · ${candidate.doi || '无标识符'}`
     const reasons = document.createElement('small')
     reasons.textContent = matchReasons(candidate) || '根据检索相关性排序'
     button.append(heading, detail, reasons)
@@ -209,7 +216,7 @@ async function loadInventory(showReport = false) {
       <article><span>网站成果总数</span><strong>${current.total}</strong></article>
       <article><span>期刊论文</span><strong>${current.journal}</strong></article>
       <article><span>会议论文</span><strong>${current.conference}</strong></article>
-      <article><span>专利</span><strong>${current.patent}</strong></article>
+      <article><span>网站已收录专利</span><strong>${current.patent}</strong></article>
     </div><p>已读取当前部署版本中的网站成果。本次检查没有修改任何内容。</p>`
     elements.reportPanel.classList.remove('hidden')
     elements.reportPanel.scrollIntoView({ behavior: 'smooth', block: 'start' })

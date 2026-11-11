@@ -1,3 +1,4 @@
+const crypto = require('crypto')
 const { normalizeTitle } = require('./core.cjs')
 
 const REQUEST_TIMEOUT_MS = 20000
@@ -32,6 +33,59 @@ function patentRoot(number = '') {
 
 function patentCountry(number = '') {
   return String(number).replace(/[^A-Z]/gi, '').slice(0, 2).toUpperCase()
+}
+
+function normalizeChineseApplicationNumber(value = '') {
+  const compact = String(value).toUpperCase().replace(/^CN\s*/i, '').replace(/[^0-9X]/g, '')
+  if (!/^(?:19|20)\d{10}[0-9X]$/.test(compact)) return ''
+  return `CN${compact.slice(0, -1)}.${compact.slice(-1)}`
+}
+
+function parseCnipaDate(value = '') {
+  const digits = String(value).replace(/\D/g, '')
+  if (!/^\d{8}$/.test(digits)) return ''
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`
+}
+
+function splitCnipaParties(value = '') {
+  return String(value).split(/[;,；，]/).map(item => item.trim()).filter(Boolean)
+}
+
+function parseCnipaPublicResults(payload = {}) {
+  return (payload.patentList || []).map(item => {
+    const patentNumber = String(item.pn || '').replace(/[.\s-]/g, '').toUpperCase()
+    const applicationNumber = normalizeChineseApplicationNumber(item.an)
+    const inventors = splitCnipaParties(item.e72)
+    const applicants = splitCnipaParties(item.e71_73)
+    const title = stripHtml(item.ti || '')
+    const date = parseCnipaDate(item.pd || item.ad)
+    const granted = /[BCU]\d?$/i.test(patentNumber) || [2, 4, 6, 8, 10].includes(Number(item.pubtype))
+    return {
+      fixture: false,
+      type: 'patent',
+      title,
+      titleZh: title,
+      titleEn: '',
+      originalLanguage: 'zh',
+      authors: inventors,
+      authorsZh: inventors,
+      inventors,
+      applicants,
+      abstract: stripHtml(item.abs || ''),
+      classifications: splitCnipaParties(item.e51),
+      year: Number(date.slice(0, 4)) || null,
+      date,
+      filingDate: parseCnipaDate(item.ad),
+      publicationDate: parseCnipaDate(item.pd),
+      applicationNumber,
+      patentNumber,
+      status: granted ? 'granted' : 'published',
+      legalStatus: granted ? 'granted' : 'published-or-pending',
+      url: patentNumber ? `https://patents.google.com/patent/${encodeURIComponent(patentNumber)}/zh` : 'https://app.gjzwfw.gov.cn/jmopen/webapp/html5/zlgbggcx/index.html',
+      familyKey: patentRoot(patentNumber || applicationNumber),
+      source: 'CNIPA public patent data',
+    }
+  }).filter(record => record.applicationNumber && record.patentNumber && record.title)
 }
 
 function parseGooglePatentResults(payload) {
@@ -337,6 +391,38 @@ async function fetchGooglePatentCsv(alias) {
   throw lastError
 }
 
+async function searchCnipaPublicPatents(query, options = {}) {
+  const searchStr = String(query).trim()
+  if (!searchStr) return []
+  const requestTime = Date.now()
+  const sign = crypto.createHash('md5').update(`zscqgbgg${requestTime}`).digest('hex')
+  const condition = {
+    from: '1',
+    key: '6f0c5ce612ba4471acce875dd7e6f6a2',
+    sign,
+    requestTime,
+    raw: {
+      searchStr: normalizeChineseApplicationNumber(searchStr).replace(/^CN|\./g, '') || searchStr,
+      from: 0,
+      size: Math.min(20, Math.max(1, Number(options.size) || 10)),
+      pubtypeList: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    },
+  }
+  const response = await fetchWithTimeout('https://app.gjzwfw.gov.cn/jimps/link.do', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json,text/plain,*/*',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      Referer: 'https://app.gjzwfw.gov.cn/jmopen/webapp/html5/zlgbggcx/index.html',
+      'User-Agent': 'Mozilla/5.0 (compatible; YiboDokkieWang-Publication-Manager/1.0)',
+    },
+    body: new URLSearchParams({ param: JSON.stringify(condition) }),
+  })
+  let payload = JSON.parse(await response.text())
+  if (typeof payload === 'string') payload = JSON.parse(payload)
+  return parseCnipaPublicResults(payload)
+}
+
 async function enrichGooglePatentChinese(record) {
   if (!record?.patentNumber || record.titleZh) return record
   const response = await fetchWithTimeout(`https://patents.google.com/patent/${encodeURIComponent(record.patentNumber)}/zh`, {
@@ -440,10 +526,13 @@ module.exports = {
   deduplicatePatentFamilies,
   enrichGooglePatentChinese,
   filterRelevantPatents,
+  normalizeChineseApplicationNumber,
+  parseCnipaPublicResults,
   parseGooglePatentCsv,
   parseGooglePatentHtml,
   parseGooglePatentResults,
   patentRoot,
+  searchCnipaPublicPatents,
   searchGooglePatentsByInventors,
   verifyKnownGooglePatent,
   verifiedPatentRecord,

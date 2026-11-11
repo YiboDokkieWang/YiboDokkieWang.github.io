@@ -26,7 +26,7 @@
     <section class="dashboard" aria-label="网站状态">
       <article><span>期刊论文</span><strong id="count-journal">—</strong></article>
       <article><span>会议论文</span><strong id="count-conference">—</strong></article>
-      <article><span>专利</span><strong id="count-patent">—</strong></article>
+      <article><span>网站已收录专利</span><strong id="count-patent">—</strong></article>
       <article class="profile-card"><span>管理身份</span><strong>Yibo Wang</strong><small>ORCID 0000-0003-0090-3181</small></article>
     </section>
 
@@ -42,9 +42,9 @@
           <input id="input-kind" name="inputKind" type="hidden" value="auto">
           <label>
             <span>粘贴任意成果信息</span>
-            <textarea id="value" name="value" rows="8" placeholder="可以输入题目、作者与题目、完整参考文献、DOI、BibTeX、IEEE链接或专利信息；无需预先选择输入类型。" required></textarea>
+            <textarea id="value" name="value" rows="8" placeholder="可以输入题目、作者与题目、完整参考文献、DOI、BibTeX、IEEE链接、专利公开号，或中国申请号（如 2023110042264）；无需预先选择输入类型。" required></textarea>
           </label>
-          <p class="smart-hint"><b>智能识别：</b>系统会拆分题目、作者、期刊/会议、年份和标识符，联网检索后在右侧按综合相似度排列候选结果。</p>
+          <p class="smart-hint"><b>智能识别：</b>系统会同时检索论文与中国公开专利；处于公开/实审阶段、尚未授权的中国专利也可以通过申请号查询。</p>
           <div class="form-actions">
             <button class="button primary" type="submit">识别并检查</button>
             <button id="clear-button" class="button ghost" type="button">清空</button>
@@ -69,7 +69,7 @@
         <div id="empty-state" class="empty-state">
           <div class="empty-icon">◎</div>
           <h3>结果将在这里显示</h3>
-          <p>输入信息后，候选结果会按题目、作者、期刊和年份的综合相似度排序。</p>
+          <p>输入信息后，候选结果会按申请号、题目、作者、期刊和年份的综合相似度排序。</p>
         </div>
 
         <div id="result-content" class="hidden">
