@@ -34,6 +34,28 @@ const elements = {
   countPatent: document.getElementById('count-patent'),
 }
 
+const editElements = {
+  toggle: document.getElementById('edit-toggle'),
+  form: document.getElementById('edit-form'),
+  cancel: document.getElementById('edit-cancel'),
+  type: document.getElementById('edit-type'),
+  year: document.getElementById('edit-year'),
+  titleEn: document.getElementById('edit-title-en'),
+  titleZh: document.getElementById('edit-title-zh'),
+  authorsEn: document.getElementById('edit-authors-en'),
+  authorsZh: document.getElementById('edit-authors-zh'),
+  venue: document.getElementById('edit-venue'),
+  doi: document.getElementById('edit-doi'),
+  volume: document.getElementById('edit-volume'),
+  issue: document.getElementById('edit-issue'),
+  pages: document.getElementById('edit-pages'),
+  articleNumber: document.getElementById('edit-article-number'),
+  applicationNumber: document.getElementById('edit-application-number'),
+  patentNumber: document.getElementById('edit-patent-number'),
+  date: document.getElementById('edit-date'),
+  patentStatus: document.getElementById('edit-patent-status'),
+}
+
 const labels = {
   new: '网站尚未收录',
   existing: '网站已经收录',
@@ -103,6 +125,82 @@ function metadataRows(record) {
     ['数据来源', record.source || '未知'],
   ]
   return values.filter(([, value]) => value !== '').map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || '—')}</dd>`).join('')
+}
+
+function editNames(values = []) {
+  return (values || []).join('; ')
+}
+
+function parseEditedNames(value = '') {
+  const separator = /[;；]/
+  const parts = separator.test(value) ? String(value).split(separator) : String(value).split(/[,，]/)
+  return parts.map(name => name.trim()).filter(Boolean)
+}
+
+function updateEditFields() {
+  const patent = editElements.type.value === 'patent'
+  document.querySelectorAll('[data-edit-for="patent"]').forEach(item => item.classList.toggle('hidden', !patent))
+  document.querySelectorAll('[data-edit-for="paper"]').forEach(item => item.classList.toggle('hidden', patent))
+}
+
+function populateEditForm(record = {}) {
+  editElements.type.value = record.type || 'journal'
+  editElements.year.value = record.year || ''
+  editElements.titleEn.value = record.titleEn || (!/[\u3400-\u9fff]/.test(record.title || '') ? record.title : '')
+  editElements.titleZh.value = record.titleZh || (/[\u3400-\u9fff]/.test(record.title || '') ? record.title : '')
+  editElements.authorsEn.value = editNames(record.authorsEn?.length ? record.authorsEn : record.authors)
+  editElements.authorsZh.value = editNames(record.authorsZh || [])
+  editElements.venue.value = record.venue || ''
+  editElements.doi.value = record.doi || ''
+  editElements.volume.value = record.volume || ''
+  editElements.issue.value = record.issue || ''
+  editElements.pages.value = record.pages || ''
+  editElements.articleNumber.value = record.articleNumber || ''
+  editElements.applicationNumber.value = record.applicationNumber || ''
+  editElements.patentNumber.value = record.patentNumber || ''
+  editElements.date.value = /^\d{4}-\d{2}-\d{2}$/.test(record.date || '') ? record.date : ''
+  editElements.patentStatus.value = record.status === 'granted' ? 'granted' : 'published'
+  updateEditFields()
+}
+
+function editedRecord() {
+  const base = { ...state.plan.record }
+  const type = editElements.type.value
+  const authorsEn = parseEditedNames(editElements.authorsEn.value)
+  const authorsZh = parseEditedNames(editElements.authorsZh.value)
+  const titleEn = editElements.titleEn.value.trim()
+  const titleZh = editElements.titleZh.value.trim()
+  const year = Number(editElements.year.value) || null
+  const record = {
+    ...base,
+    type,
+    title: titleEn || titleZh,
+    titleEn,
+    titleZh,
+    authors: authorsEn.length ? authorsEn : authorsZh,
+    authorsEn,
+    authorsZh,
+    year,
+    source: `${base.source || 'Online lookup'} (manually corrected)`,
+  }
+  if (type === 'patent') {
+    record.inventors = authorsZh.length ? authorsZh : authorsEn
+    record.applicationNumber = editElements.applicationNumber.value.trim().toUpperCase()
+    record.patentNumber = editElements.patentNumber.value.trim().toUpperCase()
+    record.date = editElements.date.value
+    record.status = editElements.patentStatus.value
+    record.legalStatus = record.status === 'granted' ? 'granted' : 'published-or-pending'
+    if (record.patentNumber) record.url = `https://patents.google.com/patent/${encodeURIComponent(record.patentNumber)}/zh`
+  } else {
+    record.venue = editElements.venue.value.trim()
+    record.doi = editElements.doi.value.trim().replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '')
+    record.volume = editElements.volume.value.trim()
+    record.issue = editElements.issue.value.trim()
+    record.pages = editElements.pages.value.trim()
+    record.articleNumber = editElements.articleNumber.value.trim()
+    if (record.doi) record.url = `https://doi.org/${record.doi}`
+  }
+  return record
 }
 
 function renderAnalysis(analysis) {
@@ -185,6 +283,9 @@ function showPlan(plan, warning = '') {
   elements.emptyState.classList.add('hidden')
   elements.resultContent.classList.remove('hidden')
   elements.metadata.innerHTML = metadataRows(plan.record)
+  populateEditForm(plan.record)
+  editElements.form.classList.add('hidden')
+  editElements.toggle.textContent = '手动修改识别结果'
   const status = plan.comparison.status
   elements.resultStatus.textContent = labels[status] || status
   elements.resultStatus.className = `status ${status}`
@@ -251,6 +352,38 @@ document.querySelectorAll('.preview-tabs button').forEach(button => {
   })
 })
 
+editElements.toggle.addEventListener('click', () => {
+  const opening = editElements.form.classList.contains('hidden')
+  if (opening && state.plan) populateEditForm(state.plan.record)
+  editElements.form.classList.toggle('hidden', !opening)
+  editElements.toggle.textContent = opening ? '收起手动修改' : '手动修改识别结果'
+})
+
+editElements.cancel.addEventListener('click', () => {
+  editElements.form.classList.add('hidden')
+  editElements.toggle.textContent = '手动修改识别结果'
+})
+
+editElements.type.addEventListener('change', updateEditFields)
+
+editElements.form.addEventListener('submit', async event => {
+  event.preventDefault()
+  const button = event.submitter
+  if (!state.plan) return
+  setBusy(button, true, '正在重新生成…')
+  try {
+    const record = editedRecord()
+    if (!record.title) throw new Error('英文题目和中文题目不能同时为空')
+    const data = await api('/api/plan', { method: 'POST', body: JSON.stringify({ record }) })
+    showPlan(data.plan, '已应用手动修改。请重新检查中英文预览，确认后再提交。')
+    showToast('手动修改已应用，预览已更新')
+  } catch (error) {
+    showToast(error.message, true)
+  } finally {
+    setBusy(button, false)
+  }
+})
+
 document.getElementById('clear-button').addEventListener('click', () => {
   elements.form.reset()
   state.plan = null
@@ -262,6 +395,8 @@ document.getElementById('clear-button').addEventListener('click', () => {
   elements.resultContent.classList.add('hidden')
   elements.resultStatus.textContent = '等待输入'
   elements.resultStatus.className = 'status neutral'
+  editElements.form.classList.add('hidden')
+  editElements.toggle.textContent = '手动修改识别结果'
 })
 
 document.getElementById('inventory-button').addEventListener('click', async event => {

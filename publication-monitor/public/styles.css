@@ -134,6 +134,16 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: .8rem; border-rad
 .candidate-item b, .candidate-item span, .candidate-item small { display: block; }
 .candidate-item span { color: var(--muted); font-size: .78rem; }
 .candidate-item small { margin-top: .2rem; color: #175cd3; font-size: .75rem; }
+.manual-edit { margin: 1rem 0; padding: .85rem; border: 1px solid #c9dcf4; border-radius: 9px; background: #f7faff; }
+.edit-form { margin-top: .85rem; }
+.edit-note { margin: 0 0 .8rem; color: var(--muted); font-size: .8rem; }
+.edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+.edit-grid label { display: block; }
+.edit-grid label.wide { grid-column: 1 / -1; }
+.edit-grid label > span { display: block; margin-bottom: .25rem; color: var(--muted); font-size: .78rem; }
+.edit-grid input, .edit-grid textarea, .edit-grid select { width: 100%; }
+.edit-grid textarea { resize: vertical; }
+.edit-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .85rem; }
 
 .report-panel { margin-top: 1rem; }
 .report-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .7rem; }
@@ -159,4 +169,6 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: .8rem; border-rad
   .dashboard, .field-grid, .fixture-grid, .report-grid { grid-template-columns: 1fr; }
   .panel { padding: 1rem; }
   .metadata { grid-template-columns: 5.5rem 1fr; }
+  .edit-grid { grid-template-columns: 1fr; }
+  .edit-grid label.wide { grid-column: auto; }
 }

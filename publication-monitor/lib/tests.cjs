@@ -231,6 +231,16 @@ function runSelfTests() {
     assert(!chinese.includes('Yibo Wang'))
   })
 
+  test('在线管理器提供识别结果手动修改入口', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'vercel-src', 'index.html'), 'utf8')
+    const script = fs.readFileSync(path.join(__dirname, '..', 'vercel-src', 'app.js'), 'utf8')
+    for (const id of ['edit-form', 'edit-title-en', 'edit-title-zh', 'edit-authors-en', 'edit-authors-zh', 'edit-patent-number', 'edit-patent-status']) {
+      assert(html.includes(`id="${id}"`), `缺少手动修改字段：${id}`)
+    }
+    assert(script.includes("api('/api/plan'"))
+    assert(script.includes('手动修改已应用'))
+  })
+
   test('Google Patents单次CSV导出可读取完整发明人字段', () => {
     const csv = 'search URL,https://patents.google.com/\nid,title,assignee,inventor,priority date,filing/creation date,publication date,grant date,result link\nCN117907843A,"Adaptive battery SOC estimation","王艺博","王艺博, 欧阳元兵, 刘继文",2024-02-16,2024-02-16,2024-04-19,,https://patents.google.com/patent/CN117907843A\n'
     const rows = parseGooglePatentCsv(csv)

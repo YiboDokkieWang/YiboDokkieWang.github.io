@@ -82,6 +82,37 @@
             <div id="candidate-list"></div>
           </div>
 
+          <section class="manual-edit">
+            <button id="edit-toggle" class="button ghost" type="button">手动修改识别结果</button>
+            <form id="edit-form" class="edit-form hidden">
+              <p class="edit-note">修改后点击“应用修改”，系统会重新生成中英文预览；此操作不会立即写入个人网站。</p>
+              <div class="edit-grid">
+                <label><span>成果类型</span><select id="edit-type"><option value="journal">期刊论文</option><option value="conference">会议论文</option><option value="patent">专利</option></select></label>
+                <label><span>年份</span><input id="edit-year" inputmode="numeric" placeholder="2026"></label>
+                <label class="wide"><span>英文题目</span><textarea id="edit-title-en" rows="2"></textarea></label>
+                <label class="wide"><span>中文题目</span><textarea id="edit-title-zh" rows="2"></textarea></label>
+                <label class="wide"><span>英文作者/发明人</span><input id="edit-authors-en" placeholder="Yibo Wang; Wenqi Zhang"></label>
+                <label class="wide"><span>中文作者/发明人</span><input id="edit-authors-zh" placeholder="王艺博; 张文起"></label>
+
+                <label data-edit-for="paper"><span>期刊或会议名称</span><input id="edit-venue"></label>
+                <label data-edit-for="paper"><span>DOI</span><input id="edit-doi"></label>
+                <label data-edit-for="paper"><span>卷</span><input id="edit-volume"></label>
+                <label data-edit-for="paper"><span>期</span><input id="edit-issue"></label>
+                <label data-edit-for="paper"><span>页码</span><input id="edit-pages"></label>
+                <label data-edit-for="paper"><span>文章编号</span><input id="edit-article-number"></label>
+
+                <label data-edit-for="patent"><span>申请号</span><input id="edit-application-number"></label>
+                <label data-edit-for="patent"><span>公开/授权号</span><input id="edit-patent-number"></label>
+                <label data-edit-for="patent"><span>公开/授权日期</span><input id="edit-date" type="date"></label>
+                <label data-edit-for="patent"><span>专利状态</span><select id="edit-patent-status"><option value="published">未授权（实审）</option><option value="granted">已授权</option></select></label>
+              </div>
+              <div class="edit-actions">
+                <button class="button primary" type="submit">应用修改并刷新预览</button>
+                <button id="edit-cancel" class="button ghost" type="button">取消</button>
+              </div>
+            </form>
+          </section>
+
           <div class="match-box">
             <div><span>网站判断</span><strong id="match-label">—</strong></div>
             <div><span>置信度</span><strong id="confidence">—</strong></div>
