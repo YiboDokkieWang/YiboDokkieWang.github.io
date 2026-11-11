@@ -106,11 +106,16 @@ function markdownReport(report) {
       `- 正式/授权版本更新：${report.counts.upgrades || 0}`,
       `- 待确认：${report.counts.ambiguous || 0}`,
     )
+    if (report.items) lines.push(`- 其中专利：${report.items.filter(item => item.type === 'patent').length}`)
   }
   if (report.sourceStatus?.length) {
     lines.push('', '## 数据源', '')
     report.sourceStatus.forEach(source => {
-      const detail = source.skipped ? `SKIP (${source.message})` : source.ok ? `${source.count}` : source.error
+      const detail = source.skipped
+        ? `SKIP (${source.message})`
+        : source.ok
+          ? `${source.count}${source.message ? `（${source.message}）` : ''}`
+          : source.error
       lines.push(`- ${source.skipped ? 'SKIP' : source.ok ? 'PASS' : 'FAIL'} ${source.source}: ${detail}`)
     })
   }
@@ -131,12 +136,19 @@ function markdownReport(report) {
       '',
       `Google Patents实时检索失败，本次使用${report.patentCoverage.cacheSavedAt || '最近一次'}保存的 ${report.patentCoverage.cacheCount || 0} 条专利候选。论文扫描不受影响。`,
     )
+  } else if (report.patentCoverage?.status === 'verification-only') {
+    lines.push(
+      '',
+      '## ⚠️ 新专利发现检索未完成',
+      '',
+      `本次至少识别到 ${report.patentCoverage.verifiedPatentCount || 0} 条已知中国专利记录，证明专利识别、查重和报告流程可以工作；但Google Patents按姓名检索失败，因此不能据此判断没有其他新专利。`,
+    )
   } else if (report.patentCoverage?.status === 'incomplete') {
     lines.push(
       '',
       '## ⚠️ 本次专利扫描未完成',
       '',
-      'Google Patents实时检索失败，EPO OPS也未成功返回数据，并且当前没有可用缓存。下面的结果不能用于判断“没有新专利”，请稍后重新运行扫描。论文扫描不受影响。',
+      'Google Patents实时检索失败，并且当前没有可用缓存或已知专利验证项。下面的结果不能用于判断“没有新专利”，请稍后重新运行扫描。论文扫描不受影响。',
     )
   }
   if (report.items?.length) {
@@ -157,7 +169,7 @@ function markdownReport(report) {
 }
 
 async function commandScan(args) {
-  const scan = await scanConfiguredSources()
+  const scan = await scanConfiguredSources({ includeVerifiedPatents: Boolean(args['verify-known-patent']) })
   const plans = scan.records.map(record => planRecord(record))
   const selectedIdentifiers = args['selected-file']
     ? new Set(JSON.parse(fs.readFileSync(args['selected-file'], 'utf8')).selectedIdentifiers || [])
@@ -210,6 +222,8 @@ async function commandScan(args) {
       patentNumber: plan.record.patentNumber,
       ieeeDocumentId: plan.record.ieeeDocumentId,
       url: plan.record.url,
+      authors: plan.record.authors,
+      source: plan.record.source,
     })),
     changedPublications: [...new Set(changed)].length > 0,
     selectedIdentifiers: selectedIdentifiers ? [...selectedIdentifiers] : [],

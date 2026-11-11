@@ -21,8 +21,6 @@ jobs:
     env:
       IEEE_API_KEY: ${{ secrets.IEEE_API_KEY }}
       SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
-      EPO_OPS_KEY: ${{ secrets.EPO_OPS_KEY }}
-      EPO_OPS_SECRET: ${{ secrets.EPO_OPS_SECRET }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout

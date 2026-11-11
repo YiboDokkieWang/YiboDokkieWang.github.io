@@ -14,6 +14,7 @@ on:
         options:
           - inventory
           - scan
+          - scan-with-known-patent
           - add
           - self-test
           - simulate-new-journal
@@ -63,8 +64,6 @@ jobs:
     env:
       IEEE_API_KEY: ${{ secrets.IEEE_API_KEY }}
       SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
-      EPO_OPS_KEY: ${{ secrets.EPO_OPS_KEY }}
-      EPO_OPS_SECRET: ${{ secrets.EPO_OPS_SECRET }}
       NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
       MANUAL_INPUT_VALUE: ${{ inputs.input_value }}
       GH_TOKEN: ${{ github.token }}
@@ -95,6 +94,10 @@ jobs:
             scan)
               node publication-monitor/cli.cjs scan --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
+            scan-with-known-patent)
+              node publication-monitor/cli.cjs scan --verify-known-patent --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
+              operation="scan"
+              ;;
             add)
               node publication-monitor/cli.cjs identify --apply --type "${{ inputs.result_type }}" --input-kind "${{ inputs.input_kind }}" --value "$MANUAL_INPUT_VALUE" --output publication-monitor/output/report.json --markdown-output publication-monitor/output/report.md
               ;;
@@ -123,7 +126,7 @@ jobs:
           echo "actionable_count=$actionable" >> "$GITHUB_OUTPUT"
 
       - name: Create owner approval checklist
-        if: steps.monitor.outputs.operation == 'scan' && steps.monitor.outputs.actionable_count != '0'
+        if: steps.monitor.outputs.operation == 'scan' && (steps.monitor.outputs.actionable_count != '0' || github.event_name == 'workflow_dispatch')
         shell: bash
         run: |
           has_issues=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.has_issues')
@@ -137,8 +140,13 @@ jobs:
             --report publication-monitor/output/report.json \
             --output publication-monitor/output/approval.md \
             --run-url "$run_url"
+          if [ "${{ steps.monitor.outputs.actionable_count }}" = "0" ]; then
+            issue_title="发表成果扫描完成：请查看本次结果"
+          else
+            issue_title="发表成果待确认：请选择本次新增成果"
+          fi
           issue_url=$(gh issue create \
-            --title "发表成果待确认：请选择本次新增成果" \
+            --title "$issue_title" \
             --body-file publication-monitor/output/approval.md \
             --label publication-review)
           node publication-monitor/approval-cli.cjs render \

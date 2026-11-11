@@ -15,7 +15,18 @@
     "nameAliases": ["Yibo Wang", "Wang Yibo", "Wang, Yibo", "WANG YIBO", "王艺博"],
     "googlePatents": {
       "enabled": true,
-      "aliases": ["王艺博"]
+      "aliases": ["王艺博"],
+      "verifiedPatents": [
+        {
+          "patentNumber": "CN117907843B",
+          "titleZh": "一种适用于锂电池SOC估计的自适应卡尔曼滤波算法",
+          "titleEn": "An adaptive Kalman filter algorithm suitable for lithium battery SOC estimation",
+          "inventors": ["王艺博", "欧阳元兵", "刘继文"],
+          "inventorsEn": ["Yibo Wang", "Yuanbing Ouyang", "Jiwen Liu"],
+          "date": "2026-09-22",
+          "status": "granted"
+        }
+      ]
     },
     "knownCollaborators": ["Yuanbing Ouyang", "Ouyang Yuanbing", "欧阳元兵", "Jiwen Liu", "Liu Jiwen", "刘继文", "Man-Chung Wong", "Chi-Kong Wong", "Qiang Yi", "Gaomin Su", "Rongxin Qiu"],
     "affiliations": ["University of Macau", "University of Macao", "澳门大学", "澳門大學", "Sunwoda", "欣旺达", "Xi'an Jiaotong-Liverpool University", "西交利物浦大学", "Inner Mongolia University of Technology", "内蒙古工业大学"],

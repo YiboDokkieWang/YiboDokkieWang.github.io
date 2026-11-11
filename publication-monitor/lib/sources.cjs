@@ -1,5 +1,5 @@
 const { cleanDoi, loadConfig, normalizeTitle, titleSimilarity } = require('./core.cjs')
-const { deduplicatePatentFamilies, enrichGooglePatentChinese, filterRelevantPatents, searchEpoPatentsByNames, searchGooglePatentsByInventors } = require('./patents.cjs')
+const { deduplicatePatentFamilies, enrichGooglePatentChinese, filterRelevantPatents, searchGooglePatentsByInventors, verifyKnownGooglePatent } = require('./patents.cjs')
 const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
 const REQUEST_TIMEOUT_MS = 15000
@@ -519,14 +519,15 @@ async function listOrcidWorks(orcidId) {
   return records
 }
 
-async function scanConfiguredSources() {
+async function scanConfiguredSources(options = {}) {
   const config = loadConfig()
   const all = []
   const sourceStatus = []
   let googleLiveSucceeded = false
-  let epoLiveSucceeded = false
   let cachedPatentRecords = []
   let patentCacheSavedAt = null
+  let verifiedPatentCount = 0
+  let verifiedPatentLiveCount = 0
   if (config.orcidId) {
     for (const [name, loader] of [
       ['Crossref ORCID', () => listCrossrefByOrcid(config.orcidId)],
@@ -584,18 +585,30 @@ async function scanConfiguredSources() {
           message: cachedPatentRecords.length ? `使用${cache.savedAt || '未知时间'}的最近成功结果` : '尚无可用的成功扫描缓存',
         })
       }
-    }
-    if (process.env.EPO_OPS_KEY && process.env.EPO_OPS_SECRET) {
-      try {
-        const records = await searchEpoPatentsByNames(config.patentSearch.nameAliases || config.authorNames)
-        all.push(...records)
-        epoLiveSucceeded = true
-        sourceStatus.push({ source: 'EPO OPS patents', ok: true, count: records.length })
-      } catch (error) {
-        sourceStatus.push({ source: 'EPO OPS patents', ok: false, count: 0, error: error.message })
+      if (options.includeVerifiedPatents) {
+        const verifiedPatents = config.patentSearch.googlePatents?.verifiedPatents || []
+        const verifiedRecords = []
+        const verificationErrors = []
+        for (const seed of verifiedPatents) {
+          const verification = await verifyKnownGooglePatent(seed)
+          verifiedRecords.push(verification.record)
+          if (verification.live) verifiedPatentLiveCount++
+          else verificationErrors.push(`${seed.patentNumber}: ${verification.error}`)
+        }
+        verifiedPatentCount = verifiedRecords.length
+        all.push(...verifiedRecords)
+        sourceStatus.push({
+          source: 'One-time known Chinese patent verification',
+          ok: verifiedRecords.length > 0,
+          count: verifiedRecords.length,
+          live: verifiedPatentLiveCount,
+          fallback: verifiedRecords.length - verifiedPatentLiveCount,
+          message: verifiedRecords.length
+            ? `仅本次手动测试：实时核验 ${verifiedPatentLiveCount}；本地已确认记录 ${verifiedRecords.length - verifiedPatentLiveCount}`
+            : '尚未配置已知专利验证项',
+          errors: verificationErrors,
+        })
       }
-    } else {
-      sourceStatus.push({ source: 'EPO OPS patents', ok: true, count: 0, skipped: true, message: '等待配置EPO_OPS_KEY和EPO_OPS_SECRET' })
     }
   }
   const patentCandidates = all.filter(record => record.type === 'patent')
@@ -653,12 +666,14 @@ async function scanConfiguredSources() {
       ignored: patentFilter.ignored.length,
     },
     patentCoverage: {
-      status: googleLiveSucceeded || epoLiveSucceeded ? 'complete' : cachedPatentRecords.length ? 'cached' : 'incomplete',
+      status: googleLiveSucceeded ? 'complete' : cachedPatentRecords.length ? 'cached' : verifiedPatentCount ? 'verification-only' : 'incomplete',
       googleLiveSucceeded,
-      epoLiveSucceeded,
       cacheUsed: cachedPatentRecords.length > 0,
       cacheCount: cachedPatentRecords.length,
       cacheSavedAt: patentCacheSavedAt,
+      verifiedPatentCount,
+      verifiedPatentLiveCount,
+      verifiedPatentFallbackCount: verifiedPatentCount - verifiedPatentLiveCount,
     },
   }
 }

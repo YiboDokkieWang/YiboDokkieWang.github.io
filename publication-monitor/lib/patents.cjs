@@ -13,10 +13,6 @@ function decodeXml(value = '') {
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)))
 }
 
-function stripXml(value = '') {
-  return decodeXml(String(value).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
-}
-
 function decodeHtml(value = '') {
   return decodeXml(value)
     .replace(/&nbsp;/gi, ' ')
@@ -30,87 +26,12 @@ function stripHtml(value = '') {
   return decodeHtml(String(value).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
 }
 
-function tagBlocks(xml, tag) {
-  const pattern = new RegExp(`<(?:[\\w-]+:)?${tag}\\b[^>]*>[\\s\\S]*?<\\/(?:[\\w-]+:)?${tag}>`, 'gi')
-  return String(xml).match(pattern) || []
-}
-
-function tagValues(xml, tag) {
-  const pattern = new RegExp(`<(?:[\\w-]+:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w-]+:)?${tag}>`, 'gi')
-  return [...String(xml).matchAll(pattern)].map(match => stripXml(match[1])).filter(Boolean)
-}
-
-function localizedTagValues(xml, tag) {
-  return tagBlocks(xml, tag).map(block => {
-    const openingTag = block.match(new RegExp(`<(?:[\\w-]+:)?${tag}\\b[^>]*>`, 'i'))?.[0] || ''
-    return {
-      language: attribute(openingTag, 'lang').toLowerCase(),
-      value: stripXml(block),
-    }
-  }).filter(item => item.value)
-}
-
-function attribute(openingTag, name) {
-  return openingTag.match(new RegExp(`${name}=["']([^"']+)["']`, 'i'))?.[1] || ''
-}
-
-function dateFromEpo(value = '') {
-  const digits = String(value).replace(/\D/g, '')
-  if (digits.length !== 8) return ''
-  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`
-}
-
 function patentRoot(number = '') {
   return String(number).replace(/[.\s-]/g, '').replace(/[A-Z]\d?$/i, '').toUpperCase()
 }
 
 function patentCountry(number = '') {
   return String(number).replace(/[^A-Z]/gi, '').slice(0, 2).toUpperCase()
-}
-
-function parseEpoExchangeXml(xml) {
-  return tagBlocks(xml, 'exchange-document').map(block => {
-    const openingTag = block.match(/<(?:[\w-]+:)?exchange-document\b[^>]*>/i)?.[0] || ''
-    const country = attribute(openingTag, 'country') || tagValues(tagBlocks(block, 'publication-reference')[0] || block, 'country')[0] || ''
-    const documentNumber = attribute(openingTag, 'doc-number') || tagValues(tagBlocks(block, 'publication-reference')[0] || block, 'doc-number')[0] || ''
-    const kind = attribute(openingTag, 'kind') || tagValues(tagBlocks(block, 'publication-reference')[0] || block, 'kind')[0] || ''
-    const patentNumber = `${country}${documentNumber}${kind}`.replace(/[.\s-]/g, '').toUpperCase()
-    const titles = localizedTagValues(block, 'invention-title')
-    const titleZh = titles.find(item => item.language.startsWith('zh') || /[\u3400-\u9fff]/.test(item.value))?.value || ''
-    const titleEn = titles.find(item => item.language.startsWith('en'))?.value
-      || titles.find(item => !/[\u3400-\u9fff]/.test(item.value))?.value
-      || ''
-    const title = titleEn || titleZh || titles[0]?.value || ''
-    const inventors = tagBlocks(block, 'inventor').flatMap(item => tagValues(item, 'name'))
-    const applicants = tagBlocks(block, 'applicant').flatMap(item => tagValues(item, 'name'))
-    const classifications = [
-      ...tagBlocks(block, 'classification-ipcr').flatMap(item => tagValues(item, 'text')),
-      ...tagValues(block, 'main-classification'),
-    ].map(value => value.replace(/\s+/g, ' ').trim()).filter(Boolean)
-    const publicationBlock = tagBlocks(block, 'publication-reference')[0] || ''
-    const date = dateFromEpo(tagValues(publicationBlock, 'date')[0] || '')
-    const abstract = stripXml(tagBlocks(block, 'abstract')[0] || '')
-    return {
-      fixture: false,
-      type: 'patent',
-      title,
-      titleEn,
-      titleZh,
-      originalLanguage: titleZh && String(country).toUpperCase() === 'CN' ? 'zh' : (titleEn ? 'en' : ''),
-      authors: [...new Set(inventors)],
-      inventors: [...new Set(inventors)],
-      applicants: [...new Set(applicants)],
-      abstract,
-      classifications: [...new Set(classifications)],
-      year: Number(date.slice(0, 4)) || null,
-      date,
-      patentNumber,
-      status: /^B\d?$|^C\d?$|^U\d?$/i.test(kind) ? 'granted' : 'published',
-      url: patentNumber ? `https://worldwide.espacenet.com/patent/search?q=pn%3D${encodeURIComponent(patentNumber)}` : '',
-      familyKey: `${patentRoot(patentNumber)}:${normalizeTitle(title)}`,
-      source: 'EPO OPS',
-    }
-  }).filter(record => record.title || record.patentNumber)
 }
 
 function parseGooglePatentResults(payload) {
@@ -328,8 +249,15 @@ function choosePreferredPatent(left, right, countryPriority = ['CN', 'WO', 'EP',
 }
 
 function deduplicatePatentFamilies(records, countryPriority) {
-  const grouped = new Map()
+  const byPublicationFamily = new Map()
   for (const record of records) {
+    const root = patentRoot(record.patentNumber)
+    const key = root || `${normalizeTitle(record.title)}:${(record.inventors || record.authors || []).map(normalizePartyName).sort().join(':')}`
+    if (!byPublicationFamily.has(key)) byPublicationFamily.set(key, record)
+    else byPublicationFamily.set(key, choosePreferredPatent(byPublicationFamily.get(key), record, countryPriority))
+  }
+  const grouped = new Map()
+  for (const record of byPublicationFamily.values()) {
     const inventorKey = (record.inventors || record.authors || []).map(normalizePartyName).sort().join(':')
     const titleKey = normalizeTitle(record.title)
     const key = titleKey ? `${titleKey}:${inventorKey}` : patentRoot(record.patentNumber)
@@ -377,44 +305,6 @@ async function fetchWithTimeout(url, options = {}) {
   } finally {
     clearTimeout(timeout)
   }
-}
-
-async function requestEpoToken(key, secret) {
-  if (!key || !secret) throw new Error('尚未配置EPO_OPS_KEY和EPO_OPS_SECRET')
-  const basic = Buffer.from(`${key}:${secret}`).toString('base64')
-  const response = await fetchWithTimeout('https://ops.epo.org/3.2/auth/accesstoken', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basic}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  })
-  const payload = await response.json()
-  if (!payload.access_token) throw new Error('EPO OPS未返回访问令牌')
-  return payload.access_token
-}
-
-function epoNameQuery(name) {
-  const escaped = String(name).replace(/["\\]/g, ' ').trim()
-  return `(inventor="${escaped}" or applicant="${escaped}")`
-}
-
-async function searchEpoPatentsByNames(names, options = {}) {
-  const key = options.key || process.env.EPO_OPS_KEY || ''
-  const secret = options.secret || process.env.EPO_OPS_SECRET || ''
-  const token = await requestEpoToken(key, secret)
-  const uniqueNames = [...new Set((names || []).map(String).map(value => value.trim()).filter(Boolean))]
-  const query = uniqueNames.map(epoNameQuery).join(' or ')
-  const endpoint = `https://ops.epo.org/3.2/rest-services/published-data/search/biblio,abstract?q=${encodeURIComponent(query)}`
-  const response = await fetchWithTimeout(endpoint, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/exchange+xml',
-      'X-OPS-Range': '1-100',
-    },
-  })
-  return parseEpoExchangeXml(await response.text())
 }
 
 function googlePatentSearchUrl(alias) {
@@ -470,6 +360,66 @@ async function enrichGooglePatentChinese(record) {
   }
 }
 
+function verifiedPatentRecord(seed = {}, metadata = {}, source = 'Verified patent record') {
+  const patentNumber = String(seed.patentNumber || '').replace(/[.\s-]/g, '').toUpperCase()
+  const liveInventors = metadata.inventors || []
+  const inventors = liveInventors.length ? liveInventors : (seed.inventors || [])
+  const titleZh = metadata.title || seed.titleZh || ''
+  const titleEn = seed.titleEn || ''
+  const date = seed.date || ''
+  return {
+    fixture: false,
+    type: 'patent',
+    title: titleEn || titleZh,
+    titleEn,
+    titleZh,
+    originalLanguage: 'zh',
+    authors: inventors,
+    authorsZh: inventors,
+    authorsEn: seed.inventorsEn || [],
+    inventors,
+    applicants: metadata.applicants?.length ? metadata.applicants : (seed.applicants || []),
+    abstract: metadata.abstract || '',
+    classifications: metadata.classifications || [],
+    year: Number(String(date).slice(0, 4)) || null,
+    date,
+    patentNumber,
+    status: seed.status || (/[BCU]\d?$/i.test(patentNumber) ? 'granted' : 'published'),
+    legalStatus: seed.status || 'published-or-pending',
+    url: patentNumber ? `https://patents.google.com/patent/${encodeURIComponent(patentNumber)}/zh` : '',
+    familyKey: patentRoot(patentNumber),
+    source,
+    identityVerified: true,
+  }
+}
+
+async function verifyKnownGooglePatent(seed = {}) {
+  const patentNumber = String(seed.patentNumber || '').replace(/[.\s-]/g, '').toUpperCase()
+  if (!patentNumber) throw new Error('已知专利缺少专利号')
+  try {
+    const response = await fetchWithTimeout(`https://patents.google.com/patent/${encodeURIComponent(patentNumber)}/zh`, {
+      headers: {
+        Accept: 'text/html,*/*;q=0.8',
+        Referer: 'https://patents.google.com/',
+        'User-Agent': 'Mozilla/5.0 (compatible; YiboDokkieWang-Publication-Monitor/1.0)',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.5',
+      },
+    })
+    const metadata = parseGooglePatentHtml(await response.text(), 'zh')
+    if (!metadata.title) throw new Error('Google Patents页面未返回专利题目')
+    return {
+      live: true,
+      record: verifiedPatentRecord(seed, metadata, 'Google Patents known-patent verification'),
+    }
+  } catch (error) {
+    return {
+      live: false,
+      error: error.message,
+      record: verifiedPatentRecord(seed, {}, 'Verified local patent fallback'),
+    }
+  }
+}
+
 async function searchGooglePatentsByInventors(names, options = {}) {
   const aliases = [...new Set((options.aliases || names || []).map(String).map(value => value.trim()).filter(Boolean))]
   const records = []
@@ -493,9 +443,8 @@ module.exports = {
   parseGooglePatentCsv,
   parseGooglePatentHtml,
   parseGooglePatentResults,
-  parseEpoExchangeXml,
   patentRoot,
-  requestEpoToken,
-  searchEpoPatentsByNames,
   searchGooglePatentsByInventors,
+  verifyKnownGooglePatent,
+  verifiedPatentRecord,
 }

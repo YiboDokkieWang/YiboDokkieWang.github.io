@@ -13,7 +13,7 @@ const {
   planRecord,
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
-const { assessPatentRelevance, deduplicatePatentFamilies, parseEpoExchangeXml, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults } = require('./patents.cjs')
+const { assessPatentRelevance, deduplicatePatentFamilies, parseGooglePatentCsv, parseGooglePatentHtml, parseGooglePatentResults, verifiedPatentRecord } = require('./patents.cjs')
 const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue, renderApprovalNotification } = require('./approval.cjs')
 const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
@@ -133,14 +133,13 @@ function runSelfTests() {
     assert.strictEqual(selected[0].patentNumber, 'CN999999991B')
   })
 
-  test('EPO OPS XML可提取专利号、发明人、申请人和分类', () => {
-    const xml = `<?xml version="1.0"?><ops:world-patent-data xmlns:ops="ops" xmlns:exch="exch"><exch:exchange-documents><exch:exchange-document country="CN" doc-number="999999991" kind="B"><exch:bibliographic-data><exch:publication-reference><exch:document-id><exch:country>CN</exch:country><exch:doc-number>999999991</exch:doc-number><exch:kind>B</exch:kind><exch:date>20270618</exch:date></exch:document-id></exch:publication-reference><exch:invention-title lang="en">Battery SOC estimation using an adaptive Kalman filter</exch:invention-title><exch:parties><exch:applicants><exch:applicant><exch:applicant-name><exch:name>UNIVERSITY OF MACAU</exch:name></exch:applicant-name></exch:applicant></exch:applicants><exch:inventors><exch:inventor><exch:inventor-name><exch:name>WANG YIBO</exch:name></exch:inventor-name></exch:inventor></exch:inventors></exch:parties><exch:classifications-ipcr><exch:classification-ipcr><exch:text>G01R 31/367</exch:text></exch:classification-ipcr></exch:classifications-ipcr></exch:bibliographic-data><exch:abstract lang="en"><exch:p>A lithium battery state-of-charge estimation method.</exch:p></exch:abstract></exch:exchange-document></exch:exchange-documents></ops:world-patent-data>`
-    const records = parseEpoExchangeXml(xml)
-    assert.strictEqual(records.length, 1)
-    assert.strictEqual(records[0].patentNumber, 'CN999999991B')
-    assert(records[0].inventors.includes('WANG YIBO'))
-    assert(records[0].applicants.includes('UNIVERSITY OF MACAU'))
-    assert(records[0].classifications.includes('G01R 31/367'))
+  test('已知中国专利在实时检索失败时仍可验证扫描链路', () => {
+    const seed = loadConfig().patentSearch.googlePatents.verifiedPatents[0]
+    const record = verifiedPatentRecord(seed)
+    assert.strictEqual(record.patentNumber, 'CN117907843B')
+    assert.strictEqual(record.identityVerified, true)
+    assert(record.titleZh.includes('锂电池'))
+    assert(record.inventors.includes('王艺博'))
   })
 
   test('Google Patents结果同时识别公开实审和授权版本', () => {
@@ -255,11 +254,28 @@ function runSelfTests() {
       issueUrl: 'https://github.com/YiboDokkieWang/YiboDokkieWang.github.io/issues/99',
       runUrl: 'https://github.com/YiboDokkieWang/YiboDokkieWang.github.io/actions/runs/123',
     })
-    assert(notification.includes('打开本次成果确认页面（共 2 项）'))
+    assert(notification.includes('打开本次扫描与确认页面（2 项待确认）'))
     assert(notification.includes('issues/99'))
     assert(notification.includes('确认：全部'))
     assert(notification.includes('确认：无'))
     assert(!notification.includes('- [ ]'))
+  })
+
+  test('确认页区分成果选择框与唯一最终提交框，并显示已有专利', () => {
+    const issue = renderApprovalIssue({
+      checkedAt: '2026-11-10T01:35:29.737Z',
+      items: [
+        { status: 'new', type: 'journal', year: 2026, title: 'New paper', doi: '10.1000/new' },
+        { status: 'existing', type: 'patent', year: 2026, notificationTitle: '一种已知专利', patentNumber: 'CN117907843B' },
+      ],
+      patentCoverage: { status: 'complete', verifiedPatentCount: 1 },
+    })
+    assert(issue.includes('本次共识别到 1 件相关专利'))
+    assert(issue.includes('CN117907843B'))
+    assert(issue.includes('第1步：勾选属于你的新增成果'))
+    assert(issue.includes('第2步：提交选择（唯一的确认位置）'))
+    assert(issue.includes('下面这个复选框才是“确定并提交”'))
+    assert.strictEqual((issue.match(/publication-confirm/g) || []).length, 1)
   })
 
   test('最近一次成功的专利扫描可以写入并读取缓存', () => {
