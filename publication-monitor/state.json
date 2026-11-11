@@ -1,14 +1,15 @@
 {
   "schemaVersion": 1,
-  "lastCheckedAt": "2026-11-11T03:40:39.701Z",
+  "lastCheckedAt": "2026-11-11T05:13:02.848Z",
   "knownIdentifiers": [
     "doi:10.1016/j.rser.2026.116708",
     "doi:10.1109/etfg61999.2025.11401175",
-    "doi:10.1109/tte.2026.3684521"
+    "doi:10.1109/tte.2026.3684521",
+    "patent:CN117907843B"
   ],
   "lastRun": {
     "mode": "scan",
-    "found": 3,
+    "found": 4,
     "missing": 1,
     "upgrades": 0,
     "ambiguous": 0
