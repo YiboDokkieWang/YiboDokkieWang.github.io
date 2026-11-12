@@ -356,7 +356,7 @@ function runSelfTests() {
       checkedAt: '2026-11-10T01:35:29.737Z',
       items: [
         { status: 'new', type: 'journal', year: 2026, title: 'First paper', doi: '10.1000/first' },
-        { status: 'new', type: 'patent', year: 2026, notificationTitle: '一种中文专利', patentNumber: 'CN456B' },
+        { status: 'new', type: 'patent', year: 2026, notificationTitle: '一种中文专利', patentNumber: 'CN456B', authors: ['王艺博', '张文起'], applicants: ['王艺博'] },
       ],
       patentCoverage: { status: 'complete' },
     }, {
@@ -367,6 +367,13 @@ function runSelfTests() {
     assert(notification.includes('issues/99'))
     assert(notification.includes('确认：全部'))
     assert(notification.includes('确认：无'))
+    assert(notification.includes('专利号：** CN456B'))
+    assert(notification.includes('发明人：** 王艺博、张文起'))
+    assert(notification.includes('申请人/单位：** 王艺博'))
+    assert(notification.includes('方式1：打开 GitHub 确认页面'))
+    assert(notification.includes('方式2：直接回复本邮件'))
+    assert(notification.includes('本邮件只展示信息，不提供勾选操作'))
+    assert(!notification.includes('邮件里的候选列表只用于查看'))
     assert(!notification.includes('- [ ]'))
   })
 

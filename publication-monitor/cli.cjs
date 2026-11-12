@@ -223,6 +223,7 @@ async function commandScan(args) {
       ieeeDocumentId: plan.record.ieeeDocumentId,
       url: plan.record.url,
       authors: plan.record.authors,
+      applicants: plan.record.applicants,
       source: plan.record.source,
     })),
     changedPublications: [...new Set(changed)].length > 0,

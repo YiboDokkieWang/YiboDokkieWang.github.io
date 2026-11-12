@@ -78,6 +78,35 @@ function appendPatentScanSummary(lines, report = {}) {
   })
 }
 
+function appendPatentEmailList(lines, report = {}, actionable = []) {
+  const patents = (report.items || []).filter(item => item.type === 'patent')
+  lines.push('## 检索到的专利', '')
+  if (!patents.length) {
+    lines.push('本次没有识别到专利。请查看下方的数据状态，确认是否使用了缓存或数据源是否正常。', '')
+    return
+  }
+  lines.push(`本次共识别到 **${patents.length} 件相关专利**。本邮件只展示信息，不提供勾选操作。`, '')
+  patents.forEach((item, patentIndex) => {
+    const title = escapeMarkdown(item.notificationTitle || item.title || item.patentNumber || '专利名称未知')
+    const link = sourceLink(item)
+    const inventors = Array.isArray(item.authors) && item.authors.length
+      ? item.authors.filter(Boolean).join('、')
+      : '数据源未提供'
+    const applicants = Array.isArray(item.applicants) && item.applicants.length
+      ? item.applicants.filter(Boolean).join('、')
+      : '数据源未提供'
+    const actionableIndex = actionable.indexOf(item)
+    lines.push(`### ${patentIndex + 1}. ${title}`)
+    lines.push(`- **专利号：** ${escapeMarkdown(item.patentNumber || '未知')}`)
+    lines.push(`- **发明人：** ${escapeMarkdown(inventors)}`)
+    lines.push(`- **申请人/单位：** ${escapeMarkdown(applicants)}`)
+    lines.push(`- **网站状态：** ${item.status === 'existing' ? '已在个人网站中' : localizedStatus(item.status)}`)
+    if (actionableIndex >= 0) lines.push(`- **回复邮件时使用的候选编号：** ${actionableIndex + 1}`)
+    if (link) lines.push(`- **详情：** [打开专利页面](${link})`)
+    lines.push('')
+  })
+}
+
 function renderApprovalIssue(report = {}, options = {}) {
   const items = actionableItems(report)
   const lines = [
@@ -139,31 +168,33 @@ function renderApprovalNotification(report = {}, options = {}) {
       ? '@YiboDokkieWang，本次自动扫描发现了可能属于你的新增成果。网站目前**尚未修改**，只有经过你的确认才会更新。'
       : '@YiboDokkieWang，本次手动扫描没有发现需要加入网站的新增成果。你可以打开结果页面查看本次专利识别情况。',
     '',
-    '## 推荐：打开确认页面勾选',
+  ]
+  appendPatentEmailList(lines, report, items)
+  lines.push(
+    '',
+    '## 方式1：打开 GitHub 确认页面',
     '',
     issueUrl
       ? `### 👉 [打开本次扫描与确认页面（${items.length} 项待确认）](${issueUrl})`
-      : `### 本次共有 ${items.length} 项成果等待确认`,
+      : `本次共有 ${items.length} 项成果等待确认。`,
     '',
-    '进入页面后，先在“第1步”勾选属于你的成果，再到页面最底部勾选“第2步：确定并提交”。第2步的复选框就是提交操作，没有额外按钮。',
+    '进入 GitHub 页面后，在“第1步”选择属于你的成果，再在页面底部完成“第2步：确定并提交”。',
     '',
-    '## 网络不稳定时：直接回复本邮件',
+    '## 方式2：直接回复本邮件',
     '',
     '- 选择部分成果：只回复一行，例如 `确认：1,2,5`',
     '- 全部属于你：回复 `确认：全部`',
     '- 都不属于你：回复 `确认：无`',
     '',
-    '> 邮件里的候选列表只用于查看，不能直接点击勾选。这是 GitHub 通知邮件的限制；请使用上面的确认页面，或直接回复编号。',
+    '回复编号使用上面专利信息中的“候选编号”，以及下面论文候选前的编号。',
     '',
-  ]
-  appendPatentScanSummary(lines, report)
-  lines.push(
-    '',
-    '## 本次待确认候选',
+    '## 论文待确认候选',
     '',
   )
-  if (!items.length) lines.push('本次没有需要加入网站的新增成果。', '')
-  items.forEach((item, index) => {
+  const paperItems = items.filter(item => item.type !== 'patent')
+  if (!paperItems.length) lines.push('本次没有需要确认的新增论文。', '')
+  paperItems.forEach(item => {
+    const index = items.indexOf(item)
     const identifier = publicationIdentifier(item)
     const title = escapeMarkdown(item.notificationTitle || item.title || identifier)
     const link = sourceLink(item)
@@ -171,8 +202,7 @@ function renderApprovalNotification(report = {}, options = {}) {
     lines.push(`${index + 1}. **${localizedType(item.type)} · ${item.year || '年份未知'} · ${localizedStatus(item.status)}**`)
     lines.push(`   - **题目：** ${linkedTitle}`)
     const authors = Array.isArray(item.authors) ? item.authors.filter(Boolean).join('、') : ''
-    const creatorLabel = item.type === 'patent' ? '发明人' : '作者'
-    if (authors) lines.push(`   - **${creatorLabel}：** ${escapeMarkdown(authors)}`)
+    if (authors) lines.push(`   - **作者：** ${escapeMarkdown(authors)}`)
     if (item.doi) lines.push(`   - **DOI：** ${escapeMarkdown(item.doi)}`)
     else if (item.patentNumber) lines.push(`   - **专利号：** ${escapeMarkdown(item.patentNumber)}`)
     lines.push('')
