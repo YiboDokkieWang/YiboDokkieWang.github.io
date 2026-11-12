@@ -18,13 +18,8 @@
 
 ## 专利
 
-
-### 已授权专利
-
 1. <strong>王艺博</strong>, 欧阳元兵, 刘继文. 一种适用于锂电池SOC估计的自适应卡尔曼滤波算法. 中国专利, CN117907843B, 2026-09-22. [[专利]](https://patents.google.com/patent/CN117907843B/zh)
 1. 毛建良, 代兰博, 文辉清, 杨勇, 汪盼, 樊小虎, 黄伟国, <strong>王艺博</strong>, 邱榕鑫. 一种双有源桥变换器控制方法与系统. 中国专利, CN116488448B, 2023-11-21. [[专利]](https://patents.google.com/patent/CN116488448B/zh)
-
-### 实审专利
 
 1. <strong>王艺博</strong>, 张文起. 一种环式锂电池主动均衡拓扑及其主动均衡方法. 中国专利, CN117458638A(实审), 2024-01-26. [[专利]](https://patents.google.com/patent/CN117458638A/zh)
 1. 毛建良, <strong>王艺博</strong>, 文辉清, 杨勇, 汪盼, 樊小虎, 黄伟国, 邱榕鑫, 代兰博. 可扩展式电池主动均衡电路. 中国专利, CN116683561A(实审), 2023-09-01. [[专利]](https://patents.google.com/patent/CN116683561A/zh)

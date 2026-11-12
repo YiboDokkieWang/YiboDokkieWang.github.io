@@ -76,7 +76,7 @@ function runSelfTests() {
     assert(buildEntry(record, 'zh').includes('中国专利'))
   })
 
-  test('期刊会议按时间倒序且专利按授权状态分组排序', () => {
+  test('期刊会议按时间倒序且专利后台分组排序但不显示分组标题', () => {
     const sample = [
       '## Journal Articles',
       '',
@@ -98,7 +98,8 @@ function runSelfTests() {
     const sorted = sortPublicationMarkdown(sample, 'en')
     assert(sorted.indexOf('Newer journal') < sorted.indexOf('Older journal'))
     assert(sorted.indexOf('Newer conference') < sorted.indexOf('Older conference'))
-    assert(sorted.indexOf('### Granted Patents') < sorted.indexOf('### Patents Under Substantive Examination'))
+    assert(!sorted.includes('### Granted Patents'))
+    assert(!sorted.includes('### Patents Under Substantive Examination'))
     assert(sorted.indexOf('CN200B') < sorted.indexOf('CN100B'))
     assert(sorted.indexOf('CN100B') < sorted.indexOf('CN300A'))
     assert(sorted.indexOf('CN300A') < sorted.indexOf('CN400A'))

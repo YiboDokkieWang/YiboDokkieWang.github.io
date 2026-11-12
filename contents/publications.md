@@ -18,13 +18,8 @@
 
 ## Patents
 
-
-### Granted Patents
-
 1. <strong>Yibo Wang</strong>, Yuanbing Ouyang, and Jiwen Liu, "An adaptive Kalman filter algorithm suitable for lithium battery SOC estimation," Chinese Patent CN117907843B, Sep. 22, 2026. [[Patent]](https://patents.google.com/patent/CN117907843B/zh)
 1. 毛建良, 代兰博, 文辉清, 杨勇, 汪盼, 樊小虎, 黄伟国, <strong>Yibo Wang</strong>, and 邱榕鑫, "一种双有源桥变换器控制方法与系统," Chinese Patent CN116488448B, Nov. 21, 2023. [[Patent]](https://patents.google.com/patent/CN116488448B/zh)
-
-### Patents Under Substantive Examination
 
 1. <strong>Yibo Wang</strong> and 张文起, "一种环式锂电池主动均衡拓扑及其主动均衡方法," Chinese Patent CN117458638A (Under Substantive Examination), Jan. 26, 2024. [[Patent]](https://patents.google.com/patent/CN117458638A/zh)
 1. 毛建良, <strong>Yibo Wang</strong>, 文辉清, 杨勇, 汪盼, 樊小虎, 黄伟国, 邱榕鑫, and 代兰博, "可扩展式电池主动均衡电路," Chinese Patent CN116683561A (Under Substantive Examination), Sep. 1, 2023. [[Patent]](https://patents.google.com/patent/CN116683561A/zh)

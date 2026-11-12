@@ -330,9 +330,7 @@ function sortPublicationMarkdown(markdown, language = 'en') {
         const number = extractIdentifiers(line).patentNumber
         return !/[BCU]\d?$/i.test(number)
       }))
-      const grantedTitle = language === 'zh' ? '### 已授权专利' : '### Granted Patents'
-      const pendingTitle = language === 'zh' ? '### 实审专利' : '### Patents Under Substantive Examination'
-      section = `\n\n${grantedTitle}\n\n${normalizeListMarkers(granted.join('\n\n'))}\n\n${pendingTitle}\n\n${normalizeListMarkers(pending.join('\n\n'))}\n`
+      section = `\n\n${normalizeListMarkers([...granted, ...pending].join('\n\n'))}\n`
     } else {
       section = `\n\n${normalizeListMarkers(sortEntryLines(entries).join('\n\n'))}\n`
     }
