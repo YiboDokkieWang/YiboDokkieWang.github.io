@@ -4,6 +4,7 @@
   "authorizedActor": "YiboDokkieWang",
   "authorNames": ["Yibo Wang", "Wang, Yibo", "王艺博"],
   "excludedOrganizations": ["东北电力大学", "Northeast Electric Power University"],
+  "scanWindowMonths": 3,
   "orcidId": "0000-0003-0090-3181",
   "orcidUrl": "https://orcid.org/0000-0003-0090-3181",
   "ieeeAuthorId": "721434224100915",

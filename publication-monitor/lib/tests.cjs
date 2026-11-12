@@ -11,6 +11,7 @@ const {
   loadFixture,
   parsePublicationMarkdown,
   planRecord,
+  sortPublicationMarkdown,
 } = require('./core.cjs')
 const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates, recordMatchesExcludedOrganization, requirePatentResults } = require('./sources.cjs')
 const {
@@ -26,6 +27,7 @@ const {
 } = require('./patents.cjs')
 const { parseApprovalEmailReply, parseApprovalIssue, renderApprovalIssue, renderApprovalNotification } = require('./approval.cjs')
 const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
+const { applyReviewDecision, isWithinRecentWindow, reviewedIdentifierSet } = require('./scan-policy.cjs')
 
 function runSelfTests() {
   const results = []
@@ -72,6 +74,34 @@ function runSelfTests() {
     const record = loadFixture('new-patent')
     assert(buildEntry(record, 'en').includes('Chinese Patent'))
     assert(buildEntry(record, 'zh').includes('中国专利'))
+  })
+
+  test('期刊会议按时间倒序且专利按授权状态分组排序', () => {
+    const sample = [
+      '## Journal Articles',
+      '',
+      '1. Older journal, 2022.',
+      '1. Newer journal, 2026.',
+      '',
+      '## Conference Papers',
+      '',
+      '1. Older conference, 2023.',
+      '1. Newer conference, 2025.',
+      '',
+      '## Patents',
+      '',
+      '1. Pending newer, Chinese Patent CN300A (Under Substantive Examination), Sep. 1, 2025.',
+      '1. Granted older, Chinese Patent CN100B, Nov. 21, 2023.',
+      '1. Granted newer, Chinese Patent CN200B, Sep. 22, 2026.',
+      '1. Pending older, Chinese Patent CN400A (Under Substantive Examination), Jan. 26, 2024.',
+    ].join('\n')
+    const sorted = sortPublicationMarkdown(sample, 'en')
+    assert(sorted.indexOf('Newer journal') < sorted.indexOf('Older journal'))
+    assert(sorted.indexOf('Newer conference') < sorted.indexOf('Older conference'))
+    assert(sorted.indexOf('### Granted Patents') < sorted.indexOf('### Patents Under Substantive Examination'))
+    assert(sorted.indexOf('CN200B') < sorted.indexOf('CN100B'))
+    assert(sorted.indexOf('CN100B') < sorted.indexOf('CN300A'))
+    assert(sorted.indexOf('CN300A') < sorted.indexOf('CN400A'))
   })
 
   test('Early Access正式版本匹配并升级', () => {
@@ -315,6 +345,7 @@ function runSelfTests() {
     assert.deepStrictEqual(parseApprovalIssue(checked), {
       confirmed: true,
       selectedIdentifiers: ['patent:CN123B'],
+      candidateIdentifiers: ['patent:CN123B', 'doi:10.1000/test'],
     })
   })
 
@@ -332,28 +363,47 @@ function runSelfTests() {
     assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：1，3'), {
       confirmed: true,
       selectedIdentifiers: ['doi:10.1000/first', 'doi:10.1000/third'],
+      candidateIdentifiers: ['doi:10.1000/first', 'patent:CN456B', 'doi:10.1000/third'],
       invalidSelections: [],
     })
     assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：2,9'), {
       confirmed: false,
       selectedIdentifiers: ['patent:CN456B'],
+      candidateIdentifiers: ['doi:10.1000/first', 'patent:CN456B', 'doi:10.1000/third'],
       invalidSelections: [9],
     })
     assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：全部'), {
       confirmed: true,
       selectedIdentifiers: ['doi:10.1000/first', 'patent:CN456B', 'doi:10.1000/third'],
+      candidateIdentifiers: ['doi:10.1000/first', 'patent:CN456B', 'doi:10.1000/third'],
       invalidSelections: [],
     })
     assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：无'), {
       confirmed: true,
       selectedIdentifiers: [],
+      candidateIdentifiers: ['doi:10.1000/first', 'patent:CN456B', 'doi:10.1000/third'],
       invalidSelections: [],
     })
     assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：2\r\n\r\n1138363737\r\n***@***.***\r\n------------------ 原始邮件 ------------------\r\n确认：1,2,5'), {
       confirmed: true,
       selectedIdentifiers: ['patent:CN456B'],
+      candidateIdentifiers: ['doi:10.1000/first', 'patent:CN456B', 'doi:10.1000/third'],
       invalidSelections: [],
     })
+  })
+
+  test('扫描只保留最近三个月并记住已审阅成果', () => {
+    const now = new Date('2026-11-12T12:00:00.000Z')
+    assert.strictEqual(isWithinRecentWindow({ date: '2026-08-12' }, 3, now), true)
+    assert.strictEqual(isWithinRecentWindow({ date: '2026-08-11' }, 3, now), false)
+    assert.strictEqual(isWithinRecentWindow({ date: '2024-01-26' }, 3, now), false)
+    const state = applyReviewDecision({ knownIdentifiers: [] }, {
+      candidateIdentifiers: ['patent:CN1A', 'patent:CN2A'],
+      selectedIdentifiers: ['patent:CN2A'],
+    }, '2026-11-12T12:00:00.000Z')
+    assert.deepStrictEqual([...reviewedIdentifierSet(state)].sort(), ['patent:CN1A', 'patent:CN2A'])
+    assert.strictEqual(state.reviewedResults['patent:CN1A'].decision, 'dismissed')
+    assert.strictEqual(state.reviewedResults['patent:CN2A'].decision, 'approved')
   })
 
   test('通知邮件包含醒目的本次确认页直达链接', () => {

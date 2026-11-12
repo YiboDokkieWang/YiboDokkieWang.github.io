@@ -10,6 +10,7 @@ const {
 const { identify, scanConfiguredSources } = require('./lib/sources.cjs')
 const { runSelfTests } = require('./lib/tests.cjs')
 const { publicationIdentifier } = require('./lib/approval.cjs')
+const { applyReviewDecision, isWithinRecentWindow, reviewedIdentifierSet } = require('./lib/scan-policy.cjs')
 
 const STATE_PATH = path.join(__dirname, 'state.json')
 
@@ -53,7 +54,8 @@ function updateState(report, records = []) {
   const known = new Set(previous.knownIdentifiers || [])
   records.forEach(record => known.add(identifierFor(record)))
   const next = {
-    schemaVersion: 1,
+    ...previous,
+    schemaVersion: 2,
     lastCheckedAt: new Date().toISOString(),
     knownIdentifiers: [...known].sort(),
     lastRun: {
@@ -65,6 +67,24 @@ function updateState(report, records = []) {
     },
   }
   fs.writeFileSync(STATE_PATH, `${JSON.stringify(next, null, 2)}\n`)
+}
+
+function commandRecordReview(args) {
+  if (!args['selection-file']) throw new Error('record-review requires --selection-file')
+  const selection = JSON.parse(fs.readFileSync(args['selection-file'], 'utf8'))
+  if (!selection.confirmed) throw new Error('不能记录尚未最终确认的选择')
+  const previous = fs.existsSync(STATE_PATH) ? JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) : { schemaVersion: 2, knownIdentifiers: [] }
+  const next = applyReviewDecision(previous, selection)
+  fs.writeFileSync(STATE_PATH, `${JSON.stringify(next, null, 2)}\n`)
+  return {
+    mode: 'record-review',
+    checkedAt: new Date().toISOString(),
+    counts: { found: (selection.candidateIdentifiers || []).length, existing: 0, missing: 0, upgrades: 0, ambiguous: 0 },
+    reviewed: (selection.candidateIdentifiers || []).length,
+    approved: (selection.selectedIdentifiers || []).length,
+    dismissed: Math.max(0, (selection.candidateIdentifiers || []).length - (selection.selectedIdentifiers || []).length),
+    changedPublications: false,
+  }
 }
 
 function containsChinese(value = '') {
@@ -170,10 +190,24 @@ function markdownReport(report) {
 
 async function commandScan(args) {
   const scan = await scanConfiguredSources({ includeVerifiedPatents: Boolean(args['verify-known-patent']) })
-  const plans = scan.records.map(record => planRecord(record))
   const selectedIdentifiers = args['selected-file']
     ? new Set(JSON.parse(fs.readFileSync(args['selected-file'], 'utf8')).selectedIdentifiers || [])
     : null
+  const config = loadConfig()
+  const state = fs.existsSync(STATE_PATH) ? JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) : {}
+  const reviewed = reviewedIdentifierSet(state)
+  const windowMonths = Math.max(1, Number(config.scanWindowMonths) || 3)
+  const recentRecords = scan.records.filter(record =>
+    selectedIdentifiers?.has(identifierFor(record)) || isWithinRecentWindow(record, windowMonths))
+  const recentPlans = recentRecords.map(record => planRecord(record))
+  const plans = recentPlans.filter(plan => {
+    const identifier = identifierFor(plan.record)
+    return selectedIdentifiers?.has(identifier)
+      || plan.comparison.status === 'upgrade'
+      || !reviewed.has(identifier)
+  })
+  const dateFilteredCount = scan.records.length - recentRecords.length
+  const reviewedFilteredCount = recentPlans.length - plans.length
   const counts = {
     found: plans.length,
     existing: plans.filter(plan => plan.comparison.status === 'existing').length,
@@ -207,10 +241,14 @@ async function commandScan(args) {
     mode: 'scan',
     checkedAt: new Date().toISOString(),
     counts,
-    sourceStatus: scan.sourceStatus,
+    sourceStatus: [
+      ...scan.sourceStatus,
+      { source: `Recent ${windowMonths}-month publication window`, ok: true, count: recentRecords.length, ignored: dateFilteredCount },
+      { source: 'Previously reviewed results', ok: true, count: reviewedFilteredCount, message: reviewedFilteredCount ? `已隐藏${reviewedFilteredCount}条已确认或已排除成果` : '没有需要隐藏的已审阅成果' },
+    ],
     patentFilter: scan.patentFilter,
     patentCoverage: scan.patentCoverage,
-    items: plans.map(plan => ({
+    items: plans.filter(plan => plan.comparison.status !== 'existing').map(plan => ({
       status: plan.comparison.status,
       type: plan.record.type,
       title: plan.record.title,
@@ -320,9 +358,10 @@ async function main() {
   } else if (command === 'fixture') report = commandFixture(args)
   else if (command === 'identify') report = await commandIdentify(args)
   else if (command === 'apply-record') report = commandApplyRecord(args)
+  else if (command === 'record-review') report = commandRecordReview(args)
   else if (command === 'scan') report = await commandScan(args)
   else {
-    process.stdout.write('Commands: self-test | inventory | fixture --name <fixture> | identify --type <type> --input-kind <kind> --value <value> [--apply] | apply-record --record-file <file> | scan [--apply]\n')
+    process.stdout.write('Commands: self-test | inventory | fixture --name <fixture> | identify --type <type> --input-kind <kind> --value <value> [--apply] | apply-record --record-file <file> | record-review --selection-file <file> | scan [--apply]\n')
     return
   }
   if (args['markdown-output']) {

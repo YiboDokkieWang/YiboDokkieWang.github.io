@@ -269,10 +269,22 @@ jobs:
         run: |
           gh issue comment "${{ github.event.issue.number }}" --body "邮件回复中包含不存在的编号。请只回复一行，例如：\`确认：1,2,5\`。"
 
+      - name: Record reviewed candidates
+        if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.invalid == '0'
+        run: node publication-monitor/cli.cjs record-review --selection-file publication-monitor/output/selection.json
+
       - name: Record empty confirmation
         if: steps.selection.outputs.confirmed == 'true' && steps.selection.outputs.count == '0' && steps.selection.outputs.invalid == '0'
         shell: bash
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add publication-monitor/state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Record reviewed publication candidates"
+            git pull --rebase origin main
+            git push origin main
+          fi
           gh issue comment "${{ github.event.issue.number }}" --body "你没有勾选任何成果，本次不会修改网站。确认页现已关闭。"
           gh issue close "${{ github.event.issue.number }}"
 

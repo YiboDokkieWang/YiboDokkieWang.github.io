@@ -244,10 +244,10 @@ function parseApprovalEmailReply(issueBody = '', commentBody = '') {
   if (!command) return { confirmed: false, selectedIdentifiers: [], invalidSelections: [] }
   const candidates = allCandidateIdentifiers(issueBody)
   if (command[1].trim() === '全部') {
-    return { confirmed: true, selectedIdentifiers: candidates, invalidSelections: [] }
+    return { confirmed: true, selectedIdentifiers: candidates, candidateIdentifiers: candidates, invalidSelections: [] }
   }
   if (command[1].trim() === '无') {
-    return { confirmed: true, selectedIdentifiers: [], invalidSelections: [] }
+    return { confirmed: true, selectedIdentifiers: [], candidateIdentifiers: candidates, invalidSelections: [] }
   }
   const normalized = command[1].replace(/[０-９]/g, character => String(character.charCodeAt(0) - 0xFEE0))
   const numbers = [...new Set((normalized.match(/\d+/g) || []).map(Number))]
@@ -258,6 +258,7 @@ function parseApprovalEmailReply(issueBody = '', commentBody = '') {
   return {
     confirmed: numbers.length > 0 && invalidSelections.length === 0,
     selectedIdentifiers,
+    candidateIdentifiers: candidates,
     invalidSelections,
   }
 }
@@ -275,6 +276,7 @@ function parseApprovalIssue(body = '') {
   return {
     confirmed: /^- \[[xX]\]\s+<!--\s*publication-confirm\s*-->/m.test(String(body)),
     selectedIdentifiers: [...new Set(selectedIdentifiers)],
+    candidateIdentifiers: allCandidateIdentifiers(body),
   }
 }
 

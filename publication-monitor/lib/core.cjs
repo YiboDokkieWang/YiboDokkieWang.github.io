@@ -286,6 +286,61 @@ function normalizeListMarkers(sectionText) {
   return sectionText.replace(/^\s*\d+\.\s+/gm, '1. ')
 }
 
+const MONTH_NUMBERS = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+}
+
+function entryDateScore(line) {
+  const iso = String(line).match(/\b((?:19|20)\d{2})-(\d{2})-(\d{2})\b/)
+  if (iso) return Number(`${iso[1]}${iso[2]}${iso[3]}`)
+  const english = String(line).match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.\s+(\d{1,2}),\s+((?:19|20)\d{2})\b/i)
+  if (english) {
+    const month = String(MONTH_NUMBERS[english[1].toLowerCase()]).padStart(2, '0')
+    return Number(`${english[3]}${month}${String(english[2]).padStart(2, '0')}`)
+  }
+  return (extractYear(line) || 0) * 10000
+}
+
+function sortEntryLines(lines) {
+  return lines
+    .map((line, index) => ({ line, index, score: entryDateScore(line) }))
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .map(item => item.line)
+}
+
+function sortPublicationMarkdown(markdown, language = 'en') {
+  let output = String(markdown)
+  for (const type of ['journal', 'conference', 'patent']) {
+    const heading = headingFor(type, language)
+    const headingPattern = new RegExp(`(^##\\s+${heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$)`, 'm')
+    const match = headingPattern.exec(output)
+    if (!match) continue
+    const start = match.index + match[0].length
+    const nextHeadingRelative = output.slice(start).search(/\n##\s+/)
+    const end = nextHeadingRelative === -1 ? output.length : start + nextHeadingRelative
+    const entries = output.slice(start, end).split(/\r?\n/).filter(line => /^\s*\d+\.\s+/.test(line))
+    let section
+    if (type === 'patent') {
+      const granted = sortEntryLines(entries.filter(line => {
+        const number = extractIdentifiers(line).patentNumber
+        return /[BCU]\d?$/i.test(number)
+      }))
+      const pending = sortEntryLines(entries.filter(line => {
+        const number = extractIdentifiers(line).patentNumber
+        return !/[BCU]\d?$/i.test(number)
+      }))
+      const grantedTitle = language === 'zh' ? '### 已授权专利' : '### Granted Patents'
+      const pendingTitle = language === 'zh' ? '### 实审专利' : '### Patents Under Substantive Examination'
+      section = `\n\n${grantedTitle}\n\n${normalizeListMarkers(granted.join('\n\n'))}\n\n${pendingTitle}\n\n${normalizeListMarkers(pending.join('\n\n'))}\n`
+    } else {
+      section = `\n\n${normalizeListMarkers(sortEntryLines(entries).join('\n\n'))}\n`
+    }
+    output = `${output.slice(0, start)}${section}${output.slice(end).replace(/^\n+/, '\n\n')}`
+  }
+  return output.trimEnd() + '\n'
+}
+
 function insertIntoSection(markdown, type, language, entry, year) {
   const heading = headingFor(type, language)
   const headingPattern = new RegExp(`(^##\\s+${heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$)`, 'm')
@@ -353,6 +408,8 @@ function applyPlan(plan) {
     en = insertIntoSection(en, plan.record.type, 'en', plan.entryEn, plan.record.year)
     zh = insertIntoSection(zh, plan.record.type, 'zh', plan.entryZh, plan.record.year)
   }
+  en = sortPublicationMarkdown(en, 'en')
+  zh = sortPublicationMarkdown(zh, 'zh')
   const backupDir = path.join(ROOT, '.publication-monitor-backups')
   fs.mkdirSync(backupDir, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -403,4 +460,5 @@ module.exports = {
   loadFixture,
   inventory,
   hasFinalMetadata,
+  sortPublicationMarkdown,
 }
