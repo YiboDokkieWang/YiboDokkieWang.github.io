@@ -248,6 +248,14 @@ function classificationHits(classifications = [], prefixes = []) {
   return prefixes.filter(prefix => normalized.some(value => value.startsWith(String(prefix).toUpperCase())))
 }
 
+function organizationMatches(value, organizations = []) {
+  const normalized = normalizePartyName(value)
+  return organizations.some(organization => {
+    const excluded = normalizePartyName(organization)
+    return excluded && normalized.includes(excluded)
+  })
+}
+
 function assessPatentRelevance(record, profile = {}) {
   const aliases = profile.nameAliases || ['Yibo Wang', 'Wang Yibo', 'Wang, Yibo', '王艺博']
   const inventors = record.inventors?.length ? record.inventors : record.authors || []
@@ -257,6 +265,25 @@ function assessPatentRelevance(record, profile = {}) {
   const identityMatched = Boolean(record.identityVerified || inventorMatches.length || applicantMatches.length)
   if (!identityMatched) {
     return { relevant: false, identityMatched: false, score: 0, reasons: ['发明人和申请人均未匹配本人姓名'], matchedKeywords: [] }
+  }
+
+  const excludedApplicants = applicants.filter(name => organizationMatches(name, profile.excludedOrganizations || []))
+  const excludedAddresses = [
+    ...(record.addresses || []),
+    record.address,
+    record.applicantAddress,
+  ].filter(Boolean).filter(value => organizationMatches(value, profile.excludedOrganizations || []))
+  if (excludedApplicants.length || excludedAddresses.length) {
+    return {
+      relevant: false,
+      identityMatched: true,
+      identityMatches: [...new Set([...inventorMatches, ...applicantMatches])],
+      score: 0,
+      threshold: Number(profile.minimumRelevanceScore) || 5,
+      reasons: [`排除单位匹配：${[...excludedApplicants, ...excludedAddresses].join('、')}`],
+      matchedKeywords: [],
+      excludedOrganization: true,
+    }
   }
 
   const title = record.title || ''

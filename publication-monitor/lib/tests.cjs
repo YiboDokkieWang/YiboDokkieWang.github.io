@@ -12,7 +12,7 @@ const {
   parsePublicationMarkdown,
   planRecord,
 } = require('./core.cjs')
-const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates } = require('./sources.cjs')
+const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates, recordMatchesExcludedOrganization } = require('./sources.cjs')
 const {
   assessPatentRelevance,
   deduplicatePatentFamilies,
@@ -131,6 +131,29 @@ function runSelfTests() {
     const assessment = assessPatentRelevance(record, profile)
     assert.strictEqual(assessment.identityMatched, false)
     assert.strictEqual(assessment.relevant, false)
+  })
+
+  test('东北电力大学申请的同名专利不会推送', () => {
+    const config = loadConfig()
+    const profile = { ...config.patentSearch, excludedOrganizations: config.excludedOrganizations }
+    const record = {
+      ...loadFixture('patent-relevant-same-name'),
+      applicants: ['东北电力大学'],
+    }
+    const assessment = assessPatentRelevance(record, profile)
+    assert.strictEqual(assessment.relevant, false)
+    assert.strictEqual(assessment.excludedOrganization, true)
+  })
+
+  test('Yibo Wang署名单位为东北电力大学的论文不会推送', () => {
+    const config = loadConfig()
+    const record = {
+      type: 'journal',
+      title: 'Power Electronics Study by a Same-name Author',
+      authors: ['Yibo Wang'],
+      authorAffiliations: [{ name: 'Yibo Wang', affiliations: ['Northeast Electric Power University'] }],
+    }
+    assert.strictEqual(recordMatchesExcludedOrganization(record, config.excludedOrganizations, config.authorNames), true)
   })
 
   test('同族专利优先保留授权版本和中国版本', () => {

@@ -52,6 +52,42 @@ function crossrefAuthors(item) {
   return (item.author || []).map(author => [author.given, author.family].filter(Boolean).join(' ')).filter(Boolean)
 }
 
+function crossrefAuthorAffiliations(item) {
+  return (item.author || []).map(author => ({
+    name: [author.given, author.family].filter(Boolean).join(' '),
+    affiliations: (author.affiliation || []).map(value => value.name || '').filter(Boolean),
+  })).filter(author => author.name && author.affiliations.length)
+}
+
+function organizationMatches(value, organizations = []) {
+  const normalized = normalizeTitle(value)
+  return organizations.some(organization => {
+    const excluded = normalizeTitle(organization)
+    return excluded && normalized.includes(excluded)
+  })
+}
+
+function authorMatches(name, aliases = []) {
+  const normalized = normalizeTitle(name)
+  return aliases.some(alias => normalizeTitle(alias) === normalized)
+}
+
+function recordMatchesExcludedOrganization(record, excludedOrganizations = [], authorAliases = []) {
+  if (!excludedOrganizations.length) return false
+  if (record.type === 'patent') {
+    const patentOrganizations = [
+      ...(record.applicants || []),
+      ...(record.addresses || []),
+      record.address,
+      record.applicantAddress,
+    ].filter(Boolean)
+    return patentOrganizations.some(value => organizationMatches(value, excludedOrganizations))
+  }
+  return (record.authorAffiliations || []).some(author =>
+    authorMatches(author.name, authorAliases)
+    && (author.affiliations || []).some(value => organizationMatches(value, excludedOrganizations)))
+}
+
 function crossrefType(item, requestedType) {
   if (requestedType && requestedType !== 'auto') return requestedType
   if (['proceedings-article', 'proceedings'].includes(item.type)) return 'conference'
@@ -66,6 +102,7 @@ function fromCrossrefItem(item, requestedType = 'auto') {
     type: crossrefType(item, requestedType),
     title: item.title?.[0] || '',
     authors: crossrefAuthors(item),
+    authorAffiliations: crossrefAuthorAffiliations(item),
     venue: item['container-title']?.[0] || item['event']?.name || '',
     year: published.year,
     date: published.date,
@@ -150,11 +187,16 @@ async function lookupIeeeDocument(documentId, requestedType = 'auto') {
 
 function fromIeeeItem(item, requestedType = 'auto', fallbackDocumentId = '') {
   const documentId = item.article_number || String(fallbackDocumentId || '')
+  const ieeeAuthors = item.authors?.authors || []
   return {
     fixture: false,
     type: requestedType !== 'auto' ? requestedType : (/conference/i.test(item.content_type || '') ? 'conference' : 'journal'),
     title: item.title || '',
-    authors: (item.authors?.authors || []).map(author => author.full_name).filter(Boolean),
+    authors: ieeeAuthors.map(author => author.full_name).filter(Boolean),
+    authorAffiliations: ieeeAuthors.map(author => ({
+      name: author.full_name || '',
+      affiliations: [author.affiliation, author.affiliation_name].flat().filter(Boolean),
+    })).filter(author => author.name && author.affiliations.length),
     venue: item.publication_title || '',
     year: Number(item.publication_year) || null,
     volume: item.volume || '',
@@ -658,7 +700,9 @@ async function scanConfiguredSources(options = {}) {
     }
   }
   const patentCandidates = all.filter(record => record.type === 'patent')
-  const patentFilter = filterRelevantPatents(patentCandidates, config.patentSearch || {})
+  const excludedOrganizations = config.excludedOrganizations || []
+  const patentProfile = { ...(config.patentSearch || {}), excludedOrganizations }
+  const patentFilter = filterRelevantPatents(patentCandidates, patentProfile)
   if (cachedPatentRecords.length) {
     patentFilter.relevant = deduplicatePatentFamilies(
       [...patentFilter.relevant, ...cachedPatentRecords],
@@ -690,8 +734,19 @@ async function scanConfiguredSources(options = {}) {
     examined: patentFilter.examined,
     localizedChinesePatents,
   })
+  const nonPatentRecords = all.filter(record => record.type !== 'patent')
+  const excludedNonPatentRecords = nonPatentRecords.filter(record =>
+    recordMatchesExcludedOrganization(record, excludedOrganizations, config.authorNames || []))
+  sourceStatus.push({
+    source: 'Excluded organization filter',
+    ok: true,
+    count: excludedNonPatentRecords.length,
+    message: excludedNonPatentRecords.length
+      ? `已剔除${excludedNonPatentRecords.length}条东北电力大学同名成果`
+      : '未发现东北电力大学同名成果',
+  })
   const eligibleRecords = [
-    ...all.filter(record => record.type !== 'patent'),
+    ...nonPatentRecords.filter(record => !recordMatchesExcludedOrganization(record, excludedOrganizations, config.authorNames || [])),
     ...patentFilter.relevant,
   ]
   const deduplicated = []
@@ -742,5 +797,6 @@ module.exports = {
   identify,
   listCrossrefByOrcid,
   listOrcidWorks,
+  recordMatchesExcludedOrganization,
   scanConfiguredSources,
 }
