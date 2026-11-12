@@ -86,7 +86,7 @@ function appendPatentEmailList(lines, report = {}, actionable = []) {
     return
   }
   lines.push(`本次共识别到 **${patents.length} 件相关专利**。本邮件只展示信息，不提供勾选操作。`, '')
-  patents.forEach((item, patentIndex) => {
+  patents.forEach(item => {
     const title = escapeMarkdown(item.notificationTitle || item.title || item.patentNumber || '专利名称未知')
     const link = sourceLink(item)
     const inventors = Array.isArray(item.authors) && item.authors.length
@@ -96,7 +96,9 @@ function appendPatentEmailList(lines, report = {}, actionable = []) {
       ? item.applicants.filter(Boolean).join('、')
       : '数据源未提供'
     const actionableIndex = actionable.indexOf(item)
-    lines.push(`### ${patentIndex + 1}. ${title}`)
+    lines.push(actionableIndex >= 0
+      ? `### 候选 ${actionableIndex + 1}. ${title}`
+      : `### 已在网站中：${title}`)
     lines.push(`- **专利号：** ${escapeMarkdown(item.patentNumber || '未知')}`)
     lines.push(`- **发明人：** ${escapeMarkdown(inventors)}`)
     lines.push(`- **申请人/单位：** ${escapeMarkdown(applicants)}`)
@@ -234,7 +236,11 @@ function allCandidateIdentifiers(body = '') {
 }
 
 function parseApprovalEmailReply(issueBody = '', commentBody = '') {
-  const command = String(commentBody).match(/^\s*确认\s*[:：]\s*([0-9０-９,，、\s]+|全部|无)\s*$/mi)
+  const firstContentLine = String(commentBody)
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .find(Boolean) || ''
+  const command = firstContentLine.match(/^确认\s*[:：]\s*([0-9０-９,，、 \t]+|全部|无)\s*$/i)
   if (!command) return { confirmed: false, selectedIdentifiers: [], invalidSelections: [] }
   const candidates = allCandidateIdentifiers(issueBody)
   if (command[1].trim() === '全部') {

@@ -349,6 +349,11 @@ function runSelfTests() {
       selectedIdentifiers: [],
       invalidSelections: [],
     })
+    assert.deepStrictEqual(parseApprovalEmailReply(issue, '确认：2\r\n\r\n1138363737\r\n***@***.***\r\n------------------ 原始邮件 ------------------\r\n确认：1,2,5'), {
+      confirmed: true,
+      selectedIdentifiers: ['patent:CN456B'],
+      invalidSelections: [],
+    })
   })
 
   test('通知邮件包含醒目的本次确认页直达链接', () => {
@@ -370,6 +375,7 @@ function runSelfTests() {
     assert(notification.includes('专利号：** CN456B'))
     assert(notification.includes('发明人：** 王艺博、张文起'))
     assert(notification.includes('申请人/单位：** 王艺博'))
+    assert(notification.includes('### 候选 2. 一种中文专利'))
     assert(notification.includes('方式1：打开 GitHub 确认页面'))
     assert(notification.includes('方式2：直接回复本邮件'))
     assert(notification.includes('本邮件只展示信息，不提供勾选操作'))
