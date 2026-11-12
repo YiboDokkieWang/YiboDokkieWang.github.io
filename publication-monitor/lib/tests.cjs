@@ -12,7 +12,7 @@ const {
   parsePublicationMarkdown,
   planRecord,
 } = require('./core.cjs')
-const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates, recordMatchesExcludedOrganization } = require('./sources.cjs')
+const { enrichAnalysisFromCandidate, parseSmartInput, rankCandidates, recordMatchesExcludedOrganization, requirePatentResults } = require('./sources.cjs')
 const {
   assessPatentRelevance,
   deduplicatePatentFamilies,
@@ -154,6 +154,11 @@ function runSelfTests() {
       authorAffiliations: [{ name: 'Yibo Wang', affiliations: ['Northeast Electric Power University'] }],
     }
     assert.strictEqual(recordMatchesExcludedOrganization(record, config.excludedOrganizations, config.authorNames), true)
+  })
+
+  test('CNIPA按姓名临时返回0条时必须启用失败与缓存流程', () => {
+    assert.throws(() => requirePatentResults([], '王艺博'), /临时返回0条结果/)
+    assert.strictEqual(requirePatentResults([{ patentNumber: 'CN117458638A' }], '王艺博').length, 1)
   })
 
   test('同族专利优先保留授权版本和中国版本', () => {

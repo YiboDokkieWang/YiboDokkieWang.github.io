@@ -11,6 +11,17 @@ const { loadPatentCache, savePatentCache } = require('./patent-cache.cjs')
 
 const REQUEST_TIMEOUT_MS = 15000
 
+function wait(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
+function requirePatentResults(records, alias) {
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error(`CNIPA按姓名“${alias}”查询临时返回0条结果`)
+  }
+  return records
+}
+
 function addOriginalLanguage(record) {
   const title = String(record.title || '')
   if (/[\u3400-\u9fff]/.test(title)) {
@@ -646,10 +657,16 @@ async function scanConfiguredSources(options = {}) {
         const aliases = cnipaConfig.aliases?.length ? cnipaConfig.aliases : ['王艺博']
         const records = []
         for (const alias of aliases) {
-          records.push(...await searchCnipaPublicPatents(alias, {
-            size: cnipaConfig.pageSize || 100,
-            maxResults: cnipaConfig.maxResults || 1000,
-          }))
+          let aliasRecords = []
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            aliasRecords = await searchCnipaPublicPatents(alias, {
+              size: cnipaConfig.pageSize || 100,
+              maxResults: cnipaConfig.maxResults || 1000,
+            })
+            if (aliasRecords.length) break
+            if (attempt < 3) await wait(attempt * 1500)
+          }
+          records.push(...requirePatentResults(aliasRecords, alias))
         }
         const uniqueRecords = [...new Map(records.map(record => [record.patentNumber, record])).values()]
         all.push(...uniqueRecords)
@@ -704,11 +721,13 @@ async function scanConfiguredSources(options = {}) {
   const patentProfile = { ...(config.patentSearch || {}), excludedOrganizations }
   const patentFilter = filterRelevantPatents(patentCandidates, patentProfile)
   if (cachedPatentRecords.length) {
+    const cachedPatentFilter = filterRelevantPatents(cachedPatentRecords, patentProfile)
     patentFilter.relevant = deduplicatePatentFamilies(
-      [...patentFilter.relevant, ...cachedPatentRecords],
+      [...patentFilter.relevant, ...cachedPatentFilter.relevant],
       config.patentSearch?.countryPriority,
     )
-    patentFilter.examined += cachedPatentRecords.length
+    patentFilter.ignored.push(...cachedPatentFilter.ignored)
+    patentFilter.examined += cachedPatentFilter.examined
   }
   let localizedChinesePatents = 0
   for (let index = 0; index < patentFilter.relevant.length; index++) {
@@ -789,6 +808,7 @@ module.exports = {
   lookupIeeeDocument,
   listIeeeByAuthor,
   parseBibtex,
+  requirePatentResults,
   parsePatentText,
   parseSmartInput,
   rankCandidates,
