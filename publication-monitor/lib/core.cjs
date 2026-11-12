@@ -330,9 +330,9 @@ function sortPublicationMarkdown(markdown, language = 'en') {
         const number = extractIdentifiers(line).patentNumber
         return !/[BCU]\d?$/i.test(number)
       }))
-      section = `\n\n${normalizeListMarkers([...granted, ...pending].join('\n\n'))}\n`
+      section = `\n\n${normalizeListMarkers([...granted, ...pending].join('\n'))}\n`
     } else {
-      section = `\n\n${normalizeListMarkers(sortEntryLines(entries).join('\n\n'))}\n`
+      section = `\n\n${normalizeListMarkers(sortEntryLines(entries).join('\n'))}\n`
     }
     output = `${output.slice(0, start)}${section}${output.slice(end).replace(/^\n+/, '\n\n')}`
   }

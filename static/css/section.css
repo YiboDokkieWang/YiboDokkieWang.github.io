@@ -28,6 +28,17 @@ section .main-body{
     font-synthesis: weight;
 }
 
+#publications-md ol > li {
+    margin: 0;
+    padding: 0;
+    line-height: inherit;
+}
+
+#publications-md ol > li > p {
+    margin: 0;
+    line-height: inherit;
+}
+
 section #contact-md ul,
 section #technologies-md ul {
     padding: 0;

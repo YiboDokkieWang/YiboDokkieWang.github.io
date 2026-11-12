@@ -103,6 +103,8 @@ function runSelfTests() {
     assert(sorted.indexOf('CN200B') < sorted.indexOf('CN100B'))
     assert(sorted.indexOf('CN100B') < sorted.indexOf('CN300A'))
     assert(sorted.indexOf('CN300A') < sorted.indexOf('CN400A'))
+    const patentEntries = sorted.slice(sorted.indexOf('1. Pending newer', sorted.indexOf('## Patents')))
+    assert(!patentEntries.includes('\n\n1. '))
   })
 
   test('Early Access正式版本匹配并升级', () => {
