@@ -4,6 +4,7 @@ const {
   ROOT,
   applyPlan,
   inventory,
+  loadConfig,
   loadFixture,
   planRecord,
 } = require('./lib/core.cjs')
