@@ -73,6 +73,10 @@ function romanizeChineseName(value = '') {
   return [given, surname].filter(Boolean).join(' ')
 }
 
+function normalizeEnglishInventorNames(values = []) {
+  return (values || []).map(romanizeChineseName).filter(Boolean)
+}
+
 function parseCnipaPublicResults(payload = {}) {
   return (payload.patentList || []).map(item => {
     const patentNumber = String(item.pn || '').replace(/[.\s-]/g, '').toUpperCase()
@@ -524,8 +528,11 @@ async function localizePatentRecord(record = {}) {
     ? record.authorsZh
     : (record.inventors?.length ? record.inventors : record.authors || [])
   const cached = PATENT_TRANSLATION_CACHE[String(record.patentNumber || '').toUpperCase()] || {}
-  let titleEn = record.titleEn || cached.titleEn || (!/[\u3400-\u9fff]/.test(record.title || '') ? record.title : '')
-  let authorsEn = record.authorsEn?.length ? record.authorsEn : (cached.authorsEn || chineseInventors.map(romanizeChineseName))
+  const suppliedEnglishTitle = record.titleEn && !/[\u3400-\u9fff]/.test(record.titleEn) ? record.titleEn : ''
+  let titleEn = suppliedEnglishTitle || cached.titleEn || (!/[\u3400-\u9fff]/.test(record.title || '') ? record.title : '')
+  let authorsEn = normalizeEnglishInventorNames(
+    record.authorsEn?.length ? record.authorsEn : (cached.authorsEn || chineseInventors),
+  )
   let translationSource = record.translationSource || (cached.titleEn ? 'Verified local translation cache' : '')
 
   if (record.patentNumber && (!titleEn || !authorsEn.length)) {
@@ -544,7 +551,7 @@ async function localizePatentRecord(record = {}) {
         titleEn = metadata.title
         translationSource = 'Google Patents English metadata'
       }
-      if (metadata.inventors.length) authorsEn = metadata.inventors.map(romanizeChineseName)
+      if (metadata.inventors.length) authorsEn = normalizeEnglishInventorNames(metadata.inventors)
     } catch {
       // Fall through to machine translation while retaining the official Chinese metadata.
     }
@@ -566,7 +573,7 @@ async function localizePatentRecord(record = {}) {
     titleEn: titleEn || record.title,
     titleZh: record.titleZh || record.title,
     authors: authorsEn.length ? authorsEn : record.authors,
-    authorsEn,
+    authorsEn: normalizeEnglishInventorNames(authorsEn),
     authorsZh: chineseInventors,
     inventors: chineseInventors,
     translationSource,
@@ -678,6 +685,7 @@ module.exports = {
   filterRelevantPatents,
   localizePatentRecord,
   normalizeChineseApplicationNumber,
+  normalizeEnglishInventorNames,
   parseCnipaPublicResults,
   parseGooglePatentCsv,
   parseGooglePatentHtml,

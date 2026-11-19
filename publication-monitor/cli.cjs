@@ -9,6 +9,7 @@ const {
   planRecord,
 } = require('./lib/core.cjs')
 const { identify, scanConfiguredSources } = require('./lib/sources.cjs')
+const { localizePatentRecord } = require('./lib/patents.cjs')
 const { runSelfTests } = require('./lib/tests.cjs')
 const { publicationIdentifier } = require('./lib/approval.cjs')
 const { applyReviewDecision, isWithinRecentWindow, reviewedIdentifierSet } = require('./lib/scan-policy.cjs')
@@ -294,9 +295,10 @@ async function commandIdentify(args) {
   }
 }
 
-function commandApplyRecord(args) {
+async function commandApplyRecord(args) {
   if (!args['record-file']) throw new Error('apply-record requires --record-file')
-  const record = JSON.parse(fs.readFileSync(args['record-file'], 'utf8'))
+  const submittedRecord = JSON.parse(fs.readFileSync(args['record-file'], 'utf8'))
+  const record = await localizePatentRecord(submittedRecord)
   if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error('在线成果记录格式无效')
   if (!['journal', 'conference', 'patent'].includes(record.type)) throw new Error('在线成果类型无效')
   if (record.fixture || record.source === 'fixture') throw new Error('测试数据禁止写入正式网站')
@@ -358,7 +360,7 @@ async function main() {
     report = { mode: 'inventory', checkedAt: new Date().toISOString(), inventory: current, counts: { found: current.total, existing: current.total, missing: 0, upgrades: 0, ambiguous: 0 }, changedPublications: false }
   } else if (command === 'fixture') report = commandFixture(args)
   else if (command === 'identify') report = await commandIdentify(args)
-  else if (command === 'apply-record') report = commandApplyRecord(args)
+  else if (command === 'apply-record') report = await commandApplyRecord(args)
   else if (command === 'record-review') report = commandRecordReview(args)
   else if (command === 'scan') report = await commandScan(args)
   else {

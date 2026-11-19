@@ -3,6 +3,7 @@ const {
   deduplicatePatentFamilies,
   enrichGooglePatentChinese,
   filterRelevantPatents,
+  localizePatentRecord,
   normalizeChineseApplicationNumber,
   searchCnipaPublicPatents,
   verifyKnownGooglePatent,
@@ -470,10 +471,10 @@ async function identifySmart(value, requestedType = 'auto') {
       const sourceCandidates = await searchCnipaPublicPatents(analysis.applicationNumber || analysis.patentNumber || analysis.raw)
       const candidates = rankCandidates(sourceCandidates, analysis)
       if (!candidates.length) throw new Error('官方公开数据库未返回匹配记录')
-      return { record: candidates[0], candidates, analysis }
+      return { record: await localizePatentRecord(candidates[0]), candidates, analysis }
     } catch (error) {
       if (analysis.record.title && analysis.record.patentNumber) {
-        return { record: analysis.record, candidates: [], analysis, warning: `官方专利查询暂时失败，已保留手动输入：${error.message}` }
+        return { record: await localizePatentRecord(analysis.record), candidates: [], analysis, warning: `官方专利查询暂时失败，已保留手动输入：${error.message}` }
       }
       throw new Error(`没有通过该申请号或公开号找到专利：${error.message}`)
     }
@@ -499,7 +500,7 @@ async function identifySmart(value, requestedType = 'auto') {
   candidates = rankCandidates(sourceCandidates, enrichedAnalysis)
   const failedSources = settled.filter(result => result.status === 'rejected').map(result => result.reason?.message).filter(Boolean)
   return {
-    record: candidates[0],
+    record: await localizePatentRecord(candidates[0]),
     candidates,
     analysis: enrichedAnalysis,
     warning: failedSources.length ? `部分数据源暂时不可用，但其余检索已完成：${failedSources.join('；')}` : '',
@@ -777,8 +778,9 @@ async function scanConfiguredSources(options = {}) {
       deduplicated.push(record)
     }
   })
+  const localizedRecords = await Promise.all(deduplicated.map(record => localizePatentRecord(record)))
   return {
-    records: deduplicated,
+    records: localizedRecords,
     sourceStatus,
     patentFilter: {
       examined: patentFilter.examined,

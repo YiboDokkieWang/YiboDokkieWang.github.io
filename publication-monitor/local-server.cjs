@@ -11,6 +11,7 @@ const {
   planRecord,
 } = require('./lib/core.cjs')
 const { identify, scanConfiguredSources } = require('./lib/sources.cjs')
+const { localizePatentRecord } = require('./lib/patents.cjs')
 const { runSelfTests } = require('./lib/tests.cjs')
 
 const HOST = '127.0.0.1'
@@ -123,7 +124,8 @@ async function apiRoute(request, response, pathname) {
 
   if (request.method === 'POST' && pathname === '/api/plan') {
     const body = await readBody(request)
-    return sendJson(response, 200, { ok: true, plan: planRecord(safeRecord(body.record)) })
+    const record = await localizePatentRecord(safeRecord(body.record))
+    return sendJson(response, 200, { ok: true, plan: planRecord(record) })
   }
 
   if (request.method === 'POST' && pathname === '/api/scan') {
@@ -142,7 +144,7 @@ async function apiRoute(request, response, pathname) {
   if (request.method === 'POST' && pathname === '/api/apply') {
     const body = await readBody(request)
     if (body.confirmation !== 'APPLY') throw new Error('需要输入 APPLY 才能写入本地网站')
-    const record = safeRecord(body.record)
+    const record = await localizePatentRecord(safeRecord(body.record))
     if (record.fixture || record.source === 'fixture') throw new Error('测试数据不能写入正式网站')
     const plan = planRecord(record)
     const result = applyPlan(plan)

@@ -18,6 +18,7 @@ const {
   assessPatentRelevance,
   deduplicatePatentFamilies,
   normalizeChineseApplicationNumber,
+  normalizeEnglishInventorNames,
   parseCnipaPublicResults,
   parseGooglePatentCsv,
   parseGooglePatentHtml,
@@ -90,10 +91,10 @@ function runSelfTests() {
       '',
       '## Patents',
       '',
-      '1. Pending newer, Chinese Patent CN300A (Under Substantive Examination), Sep. 1, 2025.',
+      '1. Pending newer, Chinese Patent CN300A (Pending Substantive Examination), Sep. 1, 2025.',
       '1. Granted older, Chinese Patent CN100B, Nov. 21, 2023.',
       '1. Granted newer, Chinese Patent CN200B, Sep. 22, 2026.',
-      '1. Pending older, Chinese Patent CN400A (Under Substantive Examination), Jan. 26, 2024.',
+      '1. Pending older, Chinese Patent CN400A (Pending Substantive Examination), Jan. 26, 2024.',
     ].join('\n')
     const sorted = sortPublicationMarkdown(sample, 'en')
     assert(sorted.indexOf('Newer journal') < sorted.indexOf('Older journal'))
@@ -264,6 +265,7 @@ function runSelfTests() {
     assert.strictEqual(romanizeChineseName('王艺博'), 'Yibo Wang')
     assert.strictEqual(romanizeChineseName('张文起'), 'Wenqi Zhang')
     assert.strictEqual(romanizeChineseName('欧阳元兵'), 'Yuanbing Ouyang')
+    assert.deepStrictEqual(normalizeEnglishInventorNames(['王艺博', 'Wenqi Zhang']), ['Yibo Wang', 'Wenqi Zhang'])
   })
 
   test('未授权专利在中英文条目中显示实审状态', () => {
@@ -284,7 +286,7 @@ function runSelfTests() {
     assert(english.includes('Yibo Wang'))
     assert(english.includes('Wenqi Zhang'))
     assert(english.includes('An active balancing topology'))
-    assert(english.includes('(Under Substantive Examination)'))
+    assert(english.includes('(Pending Substantive Examination)'))
     assert(!english.includes('王艺博'))
     assert(chinese.includes('王艺博'))
     assert(chinese.includes('一种环式锂电池'))
